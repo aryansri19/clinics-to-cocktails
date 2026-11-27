@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>From Clinics to Cocktails — Pass Booking &amp; Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Client-side QR, Pass Image Export, Batch A4 PDF & Camera Scanner -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    :root {
+      --bg-obsidian: #070707;
+      --bg-card: #111111;
+      --bg-elevated: #181818;
+      --gold-light: #f7df8b;
+      --gold-primary: #d4af37;
+      --gold-dark: #9c7a1c;
+      --border-gold: rgba(212, 175, 55, 0.3);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --text-primary: #f8f5ee;
+      --text-secondary: #b8b1a3;
+      --text-muted: #7c766b;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--bg-obsidian);
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.14) 0%, transparent 48%),
+        radial-gradient(circle at 85% 35%, rgba(212, 175, 55, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 15% 70%, rgba(212, 175, 55, 0.05) 0%, transparent 45%);
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Top Urgency Marquee */
+    .top-ticker {
+      background: linear-gradient(90deg, #8c6a14, #e6c35c, #d4af37, #e6c35c, #8c6a14);
+      color: #080808;
+      font-weight: 800;
+      font-size: 0.74rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 9px 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65);
+    }
+
+    .top-ticker .dot { margin: 0 8px; opacity: 0.65; }
+
+    /* Sub-nav bar */
+    .portal-bar {
+      background: rgba(12, 12, 12, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-gold);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand-mini {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mode-pill {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border-gold);
+      color: var(--gold-primary);
+      background: rgba(212, 175, 55, 0.08);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .nav-btn:hover, .nav-btn.active {
+      border-color: var(--gold-primary);
+      color: var(--gold-light);
+      background: rgba(212, 175, 55, 0.12);
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+
+    /* HERO */
+    .hero { padding: 44px 0 28px; text-align: center; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--gold-light);
+      margin-bottom: 12px;
+    }
+
+    .eyebrow::before, .eyebrow::after {
+      content: "";
+      width: 26px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold-primary));
+    }
+    .eyebrow::after { background: linear-gradient(90deg, var(--gold-primary), transparent); }
+
+    h1.event-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2.7rem, 7vw, 5rem);
+      font-weight: 700;
+      line-height: 1.03;
+      background: linear-gradient(135deg, #fff5d6 0%, #f5d061 35%, #d4af37 70%, #aa821e 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .event-subtitle {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(1.3rem, 3vw, 1.85rem);
+      color: var(--gold-light);
+      margin-bottom: 18px;
+      font-weight: 600;
+    }
+
+    .story-copy {
+      max-width: 680px;
+      margin: 0 auto 28px;
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.75;
+    }
+
+    .story-copy strong { color: var(--text-primary); }
+
+    /* Essentials Strip */
+    .essentials-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: linear-gradient(180deg, #151515 0%, #0e0e0e 100%);
+      border: 1px solid var(--border-gold);
+      border-radius: 16px;
+      overflow: hidden;
+      margin: 0 auto 30px;
+      max-width: 820px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .essential-item { padding: 18px 14px; text-align: center; position: relative; }
+    .essential-item:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: 0; top: 20%; height: 60%; width: 1px;
+      background: var(--border-gold);
+    }
+    .essential-label {
+      font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--gold-primary); font-weight: 700; margin-bottom: 3px;
+    }
+    .essential-value { font-size: 1.12rem; font-weight: 800; color: var(--text-primary); }
+
+    /* Primary CTA + Scarcity Cluster */
+    .cta-cluster {
+      max-width: 610px;
+      margin: 0 auto 42px;
+      background: linear-gradient(180deg, rgba(24, 21, 14, 0.94) 0%, rgba(13, 13, 13, 0.98) 100%);
+      border: 1px solid rgba(212, 175, 55, 0.45);
+      border-radius: 20px;
+      padding: 26px 22px;
+      box-shadow: 0 20px 55px rgba(0, 0, 0, 0.75), 0 0 35px rgba(212, 175, 55, 0.12);
+    }
+
+    .countdown-label {
+      font-size: 0.74rem; font-weight: 700; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--gold-light); margin-bottom: 10px;
+    }
+
+    .countdown-grid { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+    .time-box {
+      background: #090909; border: 1px solid var(--border-gold);
+      border-radius: 10px; padding: 8px 12px; min-width: 66px;
+    }
+    .time-box .num { display: block; font-size: 1.32rem; font-weight: 800; color: var(--gold-light); line-height: 1.15; }
+    .time-box .lbl { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); font-weight: 600; }
+
+    /* Buttons */
+    .btn-gold-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 17px 26px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f7df8b 0%, #d4af37 50%, #b58d22 100%);
+      color: #090909;
+      font-family: inherit;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(212, 175, 55, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .btn-gold-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 36px rgba(212, 175, 55, 0.5);
+    }
+
+    .btn-gold-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-tier-outline {
+      width: 100%;
+      padding: 15px 20px;
+      border-radius: 12px;
+      border: 1.5px solid var(--gold-primary);
+      background: transparent;
+      color: var(--gold-light);
+      font-family: inherit;
+      font-size: 0.94rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .btn-tier-outline:hover { background: rgba(212, 175, 55, 0.14); }
+
+    .scarcity-box { margin-top: 16px; text-align: center; }
+    .scarcity-text {
+      font-size: 0.88rem; font-weight: 700; color: #ffdf7e; margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap;
+    }
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #ff4d4d;
+      animation: pulse 1.6s infinite; display: inline-block;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.75); }
+      70% { box-shadow: 0 0 0 8px rgba(255, 77, 77, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+    }
+    .progress-track {
+      width: 100%; height: 8px; background: #1f1d18; border-radius: 999px;
+      overflow: hidden; border: 1px solid rgba(212, 175, 55, 0.25); margin-bottom: 6px;
+    }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #b88c1e, #f7df8b); border-radius: 999px; transition: width 0.4s ease; }
+    .scarcity-sub { font-size: 0.76rem; color: var(--text-muted); }
+
+    .lookup-link-wrap { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+    .btn-ghost-link { background: none; border: none; color: var(--text-secondary); font-family: inherit; font-size: 0.84rem; cursor: pointer; }
+    .btn-ghost-link span { color: var(--gold-light); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+    /* Sections */
+    .section { padding: 32px 0; }
+    .section-header { text-align: center; margin-bottom: 24px; }
+    .section-kicker { font-size: 0.73rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold-primary); display: block; margin-bottom: 5px; }
+    .section-title { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(1.95rem, 4.5vw, 2.75rem); font-weight: 700; color: var(--text-primary); }
+
+    /* Menu & Unlimited Drinks */
+    .hospitality-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 22px; }
+    .menu-card, .drinks-card {
+      border-radius: 20px; padding: 26px; position: relative;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    }
+    .menu-card { background: linear-gradient(180deg, #141414 0%, #0d0d0d 100%); border: 1px solid var(--border-gold); }
+    .drinks-card {
+      background: linear-gradient(160deg, #1f1a0e 0%, #110f0a 55%, #0c0c0c 100%);
+      border: 1.5px solid var(--gold-primary);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65), 0 0 30px rgba(212, 175, 55, 0.14);
+    }
+    .unlimited-ribbon {
+      display: inline-block; background: linear-gradient(135deg, #f7df8b, #d4af37);
+      color: #090909; font-size: 0.71rem; font-weight: 800; letter-spacing: 0.13em;
+      text-transform: uppercase; padding: 4px 12px; border-radius: 999px; margin-bottom: 10px;
+    }
+    .card-heading { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.85rem; font-weight: 700; color: var(--gold-light); margin-bottom: 4px; }
+    .card-sub { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 18px; }
+    .menu-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+    .menu-item {
+      display: flex; align-items: flex-start; gap: 9px; padding: 9px 11px;
+      background: rgba(255, 255, 255, 0.025); border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px; font-size: 0.9rem; font-weight: 500;
+    }
+    .menu-item .diamond { color: var(--gold-primary); font-size: 0.72rem; margin-top: 3px; }
+    .drinks-list { display: flex; flex-direction: column; gap: 9px; }
+    .drink-pill {
+      display: flex; align-items: center; justify-content: space-between; padding: 10px 14px;
+      background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.28);
+      border-radius: 10px; font-weight: 700; font-size: 0.94rem;
+    }
+    .drink-pill .tag {
+      font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-light);
+      background: rgba(0, 0, 0, 0.55); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.3);
+    }
+    .drinks-footnote {
+      margin-top: 14px; padding: 11px 13px; border-radius: 10px;
+      background: rgba(0, 0, 0, 0.5); border: 1px dashed var(--gold-primary);
+      font-size: 0.82rem; color: var(--gold-light); font-weight: 600; text-align: center;
+    }
+
+    /* Tiers */
+    .tiers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .tier-card {
+      background: var(--bg-card); border: 1px solid var(--border-gold);
+      border-radius: 20px; padding: 28px 24px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .tier-card.featured-alcohol {
+      background: linear-gradient(175deg, #1d180c 0%, #100f0c 55%, #0c0c0c 100%);
+      border: 2px solid var(--gold-primary);
+      box-shadow: 0 22px 55px rgba(0, 0, 0, 0.7), 0 0 40px rgba(212, 175, 55, 0.16);
+    }
+    .tier-badge {
+      display: inline-block; font-size: 0.71rem; font-weight: 800; letter-spacing: 0.13em;
+      text-transform: uppercase; padding: 4px 12px; border-radius: 999px; margin-bottom: 12px; width: fit-content;
+    }
+    .tier-badge.outline { border: 1px solid var(--gold-primary); color: var(--gold-light); background: rgba(212, 175, 55, 0.08); }
+    .tier-badge.solid { background: linear-gradient(135deg, #f7df8b, #d4af37); color: #080808; }
+    .tier-name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.9rem; font-weight: 700; margin-bottom: 4px; }
+    .tier-tagline { font-size: 0.86rem; color: var(--text-secondary); margin-bottom: 16px; }
+    .price-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+    .price-strike { font-size: 1.2rem; font-weight: 700; color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--danger); text-decoration-thickness: 2px; }
+    .price-current { font-size: 2.4rem; font-weight: 800; color: var(--gold-light); line-height: 1; }
+    .price-unit { font-size: 0.84rem; color: var(--text-secondary); }
+    .save-pill {
+      display: inline-block; font-size: 0.74rem; font-weight: 700; color: #4ade80;
+      background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.25);
+      padding: 3px 10px; border-radius: 6px; margin-bottom: 18px; width: fit-content;
+    }
+    .unlimited-callout {
+      background: rgba(212, 175, 55, 0.14); border: 1px solid var(--gold-primary);
+      border-radius: 10px; padding: 10px 12px; margin-bottom: 16px;
+      font-size: 0.83rem; font-weight: 700; color: var(--gold-light); text-align: center;
+    }
+    .tier-perks { list-style: none; margin-bottom: 22px; display: flex; flex-direction: column; gap: 10px; }
+    .tier-perks li { display: flex; align-items: flex-start; gap: 9px; font-size: 0.9rem; color: var(--text-secondary); }
+    .tier-perks li strong { color: var(--gold-light); }
+    .tier-perks .check { color: var(--gold-primary); font-weight: 800; }
+
+    /* Logistics */
+    .logistics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .logistics-card {
+      background: var(--bg-card); border: 1px solid var(--border-gold);
+      border-radius: 16px; padding: 20px 22px; display: flex; align-items: center; gap: 16px;
+    }
+    .logistics-icon {
+      width: 46px; height: 46px; border-radius: 12px; background: rgba(212, 175, 55, 0.12);
+      border: 1px solid var(--border-gold); display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem; flex-shrink: 0;
+    }
+    .logistics-title { font-size: 0.98rem; font-weight: 800; color: var(--gold-light); margin-bottom: 2px; }
+    .logistics-desc { font-size: 0.85rem; color: var(--text-secondary); }
+
+    /* CHECKOUT VIEW */
+    .checkout-wrap { max-width: 720px; margin: 28px auto 60px; }
+    .session-timer-bar {
+      background: linear-gradient(90deg, rgba(212, 175, 55, 0.16), rgba(212, 175, 55, 0.08));
+      border: 1px solid var(--gold-primary);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+      font-size: 0.86rem;
+      color: var(--gold-light);
+      font-weight: 700;
+    }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 20px;
+      padding: 26px;
+      margin-bottom: 20px;
+      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.6);
+    }
+
+    .panel-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
+
+    input, select, textarea {
+      background: #090909;
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 10px;
+      padding: 13px 14px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.96rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    input:focus, select:focus { border-color: var(--gold-light); }
+
+    .tier-selector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .tier-radio-card {
+      background: #0b0b0b;
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tier-radio-card.selected {
+      border-color: var(--gold-primary);
+      background: rgba(212, 175, 55, 0.1);
+      box-shadow: 0 0 24px rgba(212, 175, 55, 0.16);
+    }
+
+    .mode-switch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+    .mode-tab {
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border-gold);
+      background: #0c0c0c;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-weight: 800;
+      font-size: 0.88rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+    .mode-tab.active {
+      background: linear-gradient(135deg, rgba(247, 223, 139, 0.2), rgba(212, 175, 55, 0.12));
+      border-color: var(--gold-light);
+      color: var(--gold-light);
+    }
+
+    /* Collector QR Box */
+    .collector-qr-box {
+      background: #090909;
+      border: 1px dashed var(--gold-primary);
+      border-radius: 16px;
+      padding: 22px;
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .collector-qr-box img {
+      width: 220px;
+      height: 220px;
+      object-fit: contain;
+      border-radius: 12px;
+      border: 2px solid var(--gold-primary);
+      background: #ffffff;
+      padding: 6px;
+      margin: 12px auto;
+      display: block;
+    }
+
+    .summary-strip {
+      background: rgba(212, 175, 55, 0.08);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      font-weight: 700;
+    }
+
+    /* DIGITAL PASS CARD */
+    .digital-pass-shell {
+      max-width: 410px;
+      margin: 18px auto;
+      background: linear-gradient(160deg, #16130b 0%, #090909 55%, #12100b 100%);
+      border: 2px solid var(--gold-primary);
+      border-radius: 22px;
+      padding: 24px;
+      position: relative;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(212, 175, 55, 0.2);
+      text-align: center;
+    }
+
+    .pass-tier-banner {
+      display: inline-block;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .pass-tier-banner.alcohol { background: linear-gradient(135deg, #f7df8b, #d4af37); color: #080808; }
+    .pass-tier-banner.nonalcohol { border: 1.5px solid var(--gold-primary); color: var(--gold-light); background: rgba(212, 175, 55, 0.1); }
+
+    .pass-qr-frame {
+      background: #ffffff;
+      padding: 12px;
+      border-radius: 14px;
+      display: inline-block;
+      margin: 14px auto;
+      border: 2px solid var(--gold-primary);
+    }
+
+    .pass-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      text-align: left;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-top: 12px;
+      font-size: 0.84rem;
+    }
+
+    .pass-meta-grid div span { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold-primary); }
+
+    /* ADMIN PORTAL */
+    .admin-wrap { padding: 28px 0 64px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .kpi-card {
+      background: var(--bg-card); border: 1px solid var(--border-gold);
+      border-radius: 16px; padding: 18px;
+    }
+    .kpi-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-secondary); font-weight: 700; }
+    .kpi-val { font-size: 1.75rem; font-weight: 800; color: var(--gold-light); margin: 4px 0; }
+    .kpi-sub { font-size: 0.76rem; color: var(--text-muted); }
+
+    .admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .admin-tab-btn {
+      background: #121212; border: 1px solid var(--border-subtle); color: var(--text-secondary);
+      padding: 10px 16px; border-radius: 10px; font-family: inherit; font-weight: 700; font-size: 0.84rem; cursor: pointer;
+    }
+    .admin-tab-btn.active { background: rgba(212, 175, 55, 0.16); border-color: var(--gold-primary); color: var(--gold-light); }
+
+    .booking-row-card {
+      background: #0d0d0d; border: 1px solid var(--border-gold); border-radius: 14px;
+      padding: 16px 18px; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-block; padding: 3px 9px; border-radius: 6px;
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .badge.pending { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+    .badge.approved { background: rgba(34, 197, 94, 0.16); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.35); }
+    .badge.locked { background: rgba(239, 68, 68, 0.16); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .badge.offline { background: rgba(212, 175, 55, 0.16); color: var(--gold-light); border: 1px solid var(--border-gold); }
+
+    .btn-sm {
+      padding: 8px 13px; border-radius: 8px; font-family: inherit; font-size: 0.78rem;
+      font-weight: 800; cursor: pointer; border: 1px solid transparent;
+    }
+    .btn-sm.approve { background: #22c55e; color: #051b0d; }
+    .btn-sm.whatsapp { background: #25d366; color: #041d0d; }
+    .btn-sm.remind { background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; color: #fcd34d; }
+    .btn-sm.reject { background: rgba(239, 68, 68, 0.15); border-color: #ef4444; color: #fca5a5; }
+    .btn-sm.gold { background: var(--gold-primary); color: #080808; }
+
+    /* Inflow Table & Bar Chart */
+    .inflow-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 10px; }
+    .inflow-table th, .inflow-table td { padding: 11px 12px; text-align: left; border-bottom: 1px solid var(--border-subtle); }
+    .inflow-table th { color: var(--gold-primary); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.1em; }
+    .inflow-bar-bg { width: 100%; height: 10px; background: #1d1d1d; border-radius: 999px; overflow: hidden; }
+    .inflow-bar-fill { height: 100%; background: linear-gradient(90deg, #9c7a1c, #f7df8b); border-radius: 999px; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
+      display: none; align-items: center; justify-content: center; padding: 20px; z-index: 200;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: #121212; border: 1px solid var(--gold-primary); border-radius: 18px;
+      padding: 24px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; text-align: center;
+    }
+
+    /* Gate Scanner */
+    .gate-wrap { max-width: 520px; margin: 28px auto 60px; }
+    #qr-reader { width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid var(--gold-primary); margin-bottom: 16px; }
+    .scan-result-banner { padding: 18px; border-radius: 14px; font-weight: 800; text-align: center; margin-top: 14px; display: none; }
+    .scan-result-banner.valid { display: block; background: rgba(34, 197, 94, 0.18); border: 2px solid #22c55e; color: #86efac; }
+    .scan-result-banner.invalid { display: block; background: rgba(239, 68, 68, 0.18); border: 2px solid #ef4444; color: #fca5a5; }
+
+    /* FOMO Toast */
+    .fomo-toast {
+      position: fixed; bottom: 16px; left: 16px; background: rgba(16, 15, 12, 0.95);
+      border: 1px solid var(--gold-primary); border-radius: 12px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75);
+      z-index: 90; max-width: 310px;
+    }
+    .fomo-toast-badge {
+      width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #f7df8b, #d4af37);
+      color: #090909; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .fomo-toast-text { font-size: 0.77rem; line-height: 1.35; }
+    .fomo-toast-text span { display: block; font-size: 0.69rem; color: var(--gold-light); margin-top: 2px; }
+
+    footer {
+      margin-top: 32px; padding: 40px 20px 56px; text-align: center;
+      border-top: 1px solid var(--border-gold);
+      background: linear-gradient(180deg, transparent 0%, rgba(212, 175, 55, 0.05) 100%);
+    }
+
+    @media (max-width: 820px) {
+      .hospitality-grid, .tiers-grid, .logistics-grid, .form-grid, .tier-selector-grid, .mode-switch-grid, .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+      .menu-columns { grid-template-columns: 1fr; }
+      .essentials-strip { grid-template-columns: 1fr; }
+      .essential-item:not(:last-child)::after { width: 60%; height: 1px; top: auto; bottom: 0; left: 20%; right: auto; }
+      .fomo-toast { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Urgency Marquee -->
+  <div class="top-ticker">
+    Early Bird Wave Live <span class="dot">•</span> Bookings Close Permanently on 4 November <span class="dot">•</span> Lock Your Pass Before Prices Jump
+  </div>
+
+  <!-- Navigation Header -->
+  <nav class="portal-bar">
+    <div class="brand-mini" onclick="switchView('landing')">
+      From Clinics to Cocktails
+      <span class="mode-pill" id="dbModeBadge">Local Sync Ready</span>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-btn active" id="nav-landing" onclick="switchView('landing')">Event Details</button>
+      <button class="nav-btn" id="nav-booking" onclick="openBooking()">Book / Lock Pass</button>
+      <button class="nav-btn" id="nav-lookup" onclick="switchView('lookup')">My Pass / Pay Later</button>
+      <button class="nav-btn" id="nav-admin" onclick="openAdminGate()">Admin Portal</button>
+      <button class="nav-btn" id="nav-gate" onclick="openGateScanner()">Gate Scanner</button>
+    </div>
+  </nav>
+
+  <!-- ========================================================= -->
+  <!-- VIEW 1: MAIN LANDING PAGE                                 -->
+  <!-- ========================================================= -->
+  <div id="view-landing" class="view-section active">
+    <main class="container">
+      <section class="hero">
+        <div class="eyebrow">You're Invited To</div>
+        <h1 class="event-title">From Clinics to Cocktails</h1>
+        <p class="event-subtitle">An Evening to Celebrate Us</p>
+
+        <p class="story-copy">
+          After all the long clinical hours, endless lectures, hectic postings, late-night duties, endless patients, and countless memories—<strong>it’s time to take a break and celebrate together!</strong> Join us for an unforgettable evening of great food, <strong>unlimited drinks</strong>, music, and wonderful company.
+        </p>
+
+        <div class="essentials-strip">
+          <div class="essential-item">
+            <div class="essential-label">Date</div>
+            <div class="essential-value">16 December</div>
+          </div>
+          <div class="essential-item">
+            <div class="essential-label">Venue</div>
+            <div class="essential-value">Six Star</div>
+          </div>
+          <div class="essential-item">
+            <div class="essential-label">Time</div>
+            <div class="essential-value">6:30 PM – 11:00 PM</div>
+          </div>
+        </div>
+
+        <!-- Primary Booking CTA + Scarcity -->
+        <div class="cta-cluster">
+          <div class="countdown-label" id="cutoffHeading">Portal Closes Permanently on 4 November</div>
+          <div class="countdown-grid">
+            <div class="time-box"><span class="num" id="cd-days">00</span><span class="lbl">Days</span></div>
+            <div class="time-box"><span class="num" id="cd-hours">00</span><span class="lbl">Hours</span></div>
+            <div class="time-box"><span class="num" id="cd-mins">00</span><span class="lbl">Mins</span></div>
+            <div class="time-box"><span class="num" id="cd-secs">00</span><span class="lbl">Secs</span></div>
+          </div>
+
+          <button class="btn-gold-primary" id="heroBookBtn" onclick="openBooking()">
+            Book Pass Now
+          </button>
+
+          <div class="scarcity-box">
+            <div class="scarcity-text">
+              <span class="pulse-dot"></span>
+              <span id="scarcityLine">Hurry! Only 14 Early Bird Alcoholic &amp; 19 Non-Alcoholic passes left at this price</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="waveProgressFill" style="width: 82%;"></div>
+            </div>
+            <div class="scarcity-sub" id="waveSubText">
+              82% of Early Bird wave claimed • Prices jump to ₹1,500 &amp; ₹2,500 once this wave sells out
+            </div>
+          </div>
+
+          <div class="lookup-link-wrap">
+            <button class="btn-ghost-link" onclick="switchView('lookup')">
+              Already locked or booked a pass? <span>Complete Payment / Check Pass Status →</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- HIGH-VISIBILITY MENU & UNLIMITED DRINKS -->
+      <section class="section">
+        <div class="section-header">
+          <span class="section-kicker">Included With Your Evening</span>
+          <h2 class="section-title">The Gala Spread &amp; Unlimited Bar</h2>
+        </div>
+
+        <div class="hospitality-grid">
+          <div class="menu-card">
+            <span class="unlimited-ribbon">Full Gala Dinner Included</span>
+            <h3 class="card-heading">🍽️ Curated Food Menu</h3>
+            <p class="card-sub">Served fresh throughout the evening for both Non-Alcoholic &amp; Alcoholic pass holders.</p>
+            <div class="menu-columns">
+              <div class="menu-item"><span class="diamond">◆</span> 1 Welcome Drink</div>
+              <div class="menu-item"><span class="diamond">◆</span> 2 Veg Starters</div>
+              <div class="menu-item"><span class="diamond">◆</span> 1 Non-Veg Starter</div>
+              <div class="menu-item"><span class="diamond">◆</span> 2 Veg Curries</div>
+              <div class="menu-item"><span class="diamond">◆</span> 2 Non-Veg Curries</div>
+              <div class="menu-item"><span class="diamond">◆</span> Veg &amp; Non-Veg Biryani</div>
+              <div class="menu-item"><span class="diamond">◆</span> Assorted Breads</div>
+              <div class="menu-item"><span class="diamond">◆</span> Signature Desserts</div>
+            </div>
+          </div>
+
+          <div class="drinks-card">
+            <span class="unlimited-ribbon">100% Unlimited Pour • ₹1,500 Pass</span>
+            <h3 class="card-heading">🥂 Unlimited Bar</h3>
+            <p class="card-sub">Free-flowing pours all evening from 6:30 PM – 11:00 PM with the ₹1,500 Alcoholic Pass.</p>
+            <div class="drinks-list">
+              <div class="drink-pill"><span>🥃 Whiskey</span><span class="tag">Unlimited</span></div>
+              <div class="drink-pill"><span>🍸 Vodka</span><span class="tag">Unlimited</span></div>
+              <div class="drink-pill"><span>🍹 Gin</span><span class="tag">Unlimited</span></div>
+              <div class="drink-pill"><span>🥤 Soft Drinks, Water &amp; Ice</span><span class="tag">Unlimited</span></div>
+            </div>
+            <div class="drinks-footnote">
+              Everything Unlimited — No drink coupons, no per-peg charges.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PASS TIERS -->
+      <section class="section">
+        <div class="section-header">
+          <span class="section-kicker">Early Bird Offer • Lock Now or Pay Before 4 Nov</span>
+          <h2 class="section-title">Choose Your Party Pass</h2>
+        </div>
+
+        <div class="tiers-grid">
+          <div class="tier-card">
+            <div>
+              <span class="tier-badge outline">Non-Alcoholic Pass</span>
+              <h3 class="tier-name">Dinner &amp; Mocktails Pass</h3>
+              <p class="tier-tagline">Full gala dinner, welcome drink, soft beverages &amp; transport.</p>
+              <div class="price-row">
+                <span class="price-strike">₹1,500</span>
+                <span class="price-current" id="cardPriceNA">₹1,000</span>
+                <span class="price-unit">/ person</span>
+              </div>
+              <div class="save-pill">EARLY BIRD • SAVE ₹500</div>
+              <ul class="tier-perks">
+                <li><span class="check">✓</span> Full 8-item Veg &amp; Non-Veg Gala Dinner Spread</li>
+                <li><span class="check">✓</span> 1 Welcome Drink + Unlimited Soft Drinks, Water &amp; Ice</li>
+                <li><span class="check">✓</span> Music, DJ &amp; Dance Floor Access</li>
+                <li><span class="check">✓</span> Bus Pickup &amp; Drop-off + Parking Included</li>
+              </ul>
+            </div>
+            <button class="btn-tier-outline" onclick="openBooking('NON_ALCOHOLIC')">
+              Select Non-Alcoholic — ₹1,000
+            </button>
+          </div>
+
+          <div class="tier-card featured-alcohol">
+            <div>
+              <span class="tier-badge solid">Most Popular • Unlimited Alcohol</span>
+              <h3 class="tier-name">Unlimited Cocktails &amp; Bar Pass</h3>
+              <p class="tier-tagline">Everything in the gala dinner + unlimited whiskey, vodka &amp; gin.</p>
+              <div class="price-row">
+                <span class="price-strike">₹2,500</span>
+                <span class="price-current" id="cardPriceAL">₹1,500</span>
+                <span class="price-unit">/ person</span>
+              </div>
+              <div class="save-pill">EARLY BIRD • SAVE ₹1,000</div>
+              <div class="unlimited-callout">
+                🥂 INCLUDES UNLIMITED WHISKEY, VODKA &amp; GIN ALL EVENING
+              </div>
+              <ul class="tier-perks">
+                <li><span class="check">✓</span> <strong>Unlimited Alcohol:</strong> Whiskey, Vodka &amp; Gin (6:30 PM – 11:00 PM)</li>
+                <li><span class="check">✓</span> Full 8-item Veg &amp; Non-Veg Gala Dinner Spread</li>
+                <li><span class="check">✓</span> Unlimited Soft Drinks, Mixers, Water &amp; Ice</li>
+                <li><span class="check">✓</span> Bus Pickup &amp; Drop-off + Parking Included</li>
+              </ul>
+            </div>
+            <button class="btn-gold-primary" onclick="openBooking('ALCOHOLIC')">
+              Select Unlimited Alcohol — ₹1,500
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOGISTICS -->
+      <section class="section">
+        <div class="logistics-grid">
+          <div class="logistics-card">
+            <div class="logistics-icon">🚌</div>
+            <div>
+              <div class="logistics-title">Bus Transportation Provided</div>
+              <div class="logistics-desc">Pickup and drop-off arrangements included for everyone.</div>
+            </div>
+          </div>
+          <div class="logistics-card">
+            <div class="logistics-icon">🅿️</div>
+            <div>
+              <div class="logistics-title">Parking Available for All</div>
+              <div class="logistics-desc">Dedicated parking space at Six Star for your own vehicles.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <p style="font-family: 'Cormorant Garamond', serif; font-size: 1.85rem; font-style: italic; color: var(--gold-light); margin-bottom: 8px;">
+          “Your presence will make the celebration even more special. Let’s eat, drink, and celebrate!”
+        </p>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); max-width: 540px; margin: 0 auto 22px;">
+          Can’t pay right now? Lock your Early Bird price today and pick your payment date before <strong>4 November</strong>.
+        </p>
+        <div style="max-width: 340px; margin: 0 auto 18px;">
+          <button class="btn-gold-primary" onclick="openBooking()">Book Pass Now</button>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+          From Clinics to Cocktails • 16 December • Six Star • 6:30 PM – 11:00 PM
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- VIEW 2: BOOKING & PAY LATER CHECKOUT                      -->
+  <!-- ========================================================= -->
+  <div id="view-booking" class="view-section">
+    <div class="container checkout-wrap">
+      <div class="session-timer-bar">
+        <span>⏳ Early Bird Rate Locked for Your Session</span>
+        <span id="checkoutSessionTimer" style="font-size: 1.05rem;">07:00</span>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>1. Guest &amp; Pass Selection</span>
+          <button class="nav-btn" onclick="switchView('landing')">← Back</button>
+        </div>
+
+        <div class="tier-selector-grid">
+          <div class="tier-radio-card" id="opt-NON_ALCOHOLIC" onclick="selectTier('NON_ALCOHOLIC')">
+            <div style="font-size: 0.72rem; font-weight: 800; color: var(--gold-primary); text-transform: uppercase;">Non-Alcoholic</div>
+            <div style="font-size: 1.25rem; font-weight: 800; margin: 4px 0;">
+              <span style="text-decoration: line-through; color: var(--text-muted); font-size: 0.92rem;">₹1,500</span>
+              <span style="color: var(--gold-light);" id="chkPriceNA"> ₹1,000</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary);">Full Gala Dinner + Mocktails + Bus</div>
+          </div>
+
+          <div class="tier-radio-card selected" id="opt-ALCOHOLIC" onclick="selectTier('ALCOHOLIC')">
+            <div style="font-size: 0.72rem; font-weight: 800; color: #080808; background: var(--gold-primary); display: inline-block; padding: 2px 8px; border-radius: 6px; text-transform: uppercase;">Unlimited Alcohol</div>
+            <div style="font-size: 1.25rem; font-weight: 800; margin: 4px 0;">
+              <span style="text-decoration: line-through; color: var(--text-muted); font-size: 0.92rem;">₹2,500</span>
+              <span style="color: var(--gold-light);" id="chkPriceAL"> ₹1,500</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary);">Unlimited Whiskey, Vodka, Gin + Dinner</div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="guestName">Full Name (Printed on Pass) *</label>
+            <input type="text" id="guestName" placeholder="e.g. Dr. Aryan Srivastava" required />
+          </div>
+
+          <div class="form-group">
+            <label for="guestBatch">Select Your Batch *</label>
+            <select id="guestBatch" onchange="handleBatchChange()">
+              <option value="">-- Choose Batch --</option>
+              <option value="2020">2020 Batch</option>
+              <option value="2021">2021 Batch</option>
+              <option value="2022">2022 Batch</option>
+              <option value="2023">2023 Batch</option>
+              <option value="2024">2024 Batch</option>
+              <option value="2025">2025 Batch</option>
+              <option value="2026">2026 Batch</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="guestWhatsapp">WhatsApp Number (Pass Delivery) *</label>
+            <input type="tel" id="guestWhatsapp" maxlength="10" placeholder="10-digit WhatsApp number" required />
+          </div>
+
+          <div class="form-group">
+            <label for="guestQty">Number of Passes *</label>
+            <select id="guestQty" onchange="recalcTotal()">
+              <option value="1">1 Pass</option>
+              <option value="2">2 Passes</option>
+              <option value="3">3 Passes</option>
+              <option value="4">4 Passes</option>
+              <option value="5">5 Passes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="summary-strip">
+          <span>Total Payable (<span id="sumLabel">1 × Unlimited Alcohol</span>)</span>
+          <span style="font-size: 1.35rem; color: var(--gold-light);" id="sumAmount">₹1,500</span>
+        </div>
+      </div>
+
+      <!-- STEP 2: PAY NOW OR LOCK & PAY LATER -->
+      <div class="panel-card">
+        <div class="panel-title">2. Choose Payment Option</div>
+
+        <div class="mode-switch-grid">
+          <button type="button" class="mode-tab active" id="tabPayNow" onclick="setPaymentChoice('PAY_NOW')">
+            ⚡ Pay Now &amp; Upload Screenshot
+          </button>
+          <button type="button" class="mode-tab" id="tabPayLater" onclick="setPaymentChoice('PAY_LATER')">
+            🔒 Lock Price Now &amp; Pay Later
+          </button>
+        </div>
+
+        <!-- OPTION A: PAY NOW (BATCH-ROUTED QR) -->
+        <div id="payNowSection">
+          <div id="batchLockedNotice" class="collector-qr-box">
+            <div style="font-size: 0.92rem; color: var(--gold-light); font-weight: 700;">
+              👆 Select your batch above to reveal your batch coordinator's payment QR code.
+            </div>
+          </div>
+
+          <div id="collectorQrDisplay" class="collector-qr-box" style="display: none;">
+            <div style="font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--gold-primary); font-weight: 800;">
+              Batch Payment Receiver
+            </div>
+            <div id="collectorNameTitle" style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary); margin-top: 2px;">
+              Dr. Naina
+            </div>
+            <div id="collectorBatchSub" style="font-size: 0.8rem; color: var(--text-secondary);">
+              Assigned Collector for 2021 &amp; 2022 Batch
+            </div>
+
+            <img id="collectorQrImg" src="" alt="Batch Payment QR Code" />
+
+            <div style="font-size: 0.86rem; color: var(--gold-light); font-weight: 700;">
+              Scan &amp; Pay Exact Amount: <span id="qrPayAmount">₹1,500</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+              After paying, upload your payment screenshot below for admin approval.
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="paymentScreenshot">Upload Payment Screenshot *</label>
+            <input type="file" id="paymentScreenshot" accept="image/*" onchange="handleScreenshotSelect(event)" />
+            <div id="screenshotPreviewWrap" style="display: none; margin-top: 10px; text-align: center;">
+              <img id="screenshotPreviewImg" style="max-height: 180px; border-radius: 10px; border: 1px solid var(--gold-primary);" />
+              <div style="font-size: 0.75rem; color: #4ade80; margin-top: 4px;">✓ Screenshot attached &amp; compressed</div>
+            </div>
+          </div>
+
+          <button type="button" class="btn-gold-primary" onclick="submitPayNowBooking()">
+            Submit Screenshot for Pass Approval
+          </button>
+        </div>
+
+        <!-- OPTION B: LOCK NOW & PAY LATER -->
+        <div id="payLaterSection" style="display: none;">
+          <div style="background: rgba(212, 175, 55, 0.08); border: 1px solid var(--border-gold); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; font-size: 0.86rem; color: var(--text-secondary);">
+            <strong style="color: var(--gold-light);">How Price Lock Works:</strong><br />
+            Your Early Bird rate (<strong id="lockRateText">₹1,500</strong>/pass) is reserved against price hikes. <strong>No pass will be generated or sent</strong> until you return, complete your payment, and upload your screenshot on or before <strong>4 November</strong>.
+          </div>
+
+          <div class="form-group">
+            <label for="promisedPayDate">When are you planning to pay? (On or before 4 Nov) *</label>
+            <input type="date" id="promisedPayDate" />
+          </div>
+
+          <button type="button" class="btn-gold-primary" onclick="submitPayLaterLock()">
+            Lock My Early Bird Rate Now
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- VIEW 3: PASS LOOKUP & PAY LATER COMPLETION                -->
+  <!-- ========================================================= -->
+  <div id="view-lookup" class="view-section">
+    <div class="container checkout-wrap">
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Check Pass Status / Complete Payment</span>
+          <button class="nav-btn" onclick="switchView('landing')">← Home</button>
+        </div>
+        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">
+          Enter your <strong>10-digit WhatsApp Number</strong> or <strong>Booking ID</strong> (e.g., <code>PASS-XXXX</code> or <code>LOCK-XXXX</code>) to view your status, upload payment for a locked pass, or download your approved pass.
+        </p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <input type="text" id="lookupQuery" placeholder="Enter WhatsApp Number or Booking ID" style="flex: 1; min-width: 220px;" />
+          <button class="btn-gold-primary" style="width: auto; padding: 13px 22px;" onclick="searchBooking()">Search</button>
+        </div>
+      </div>
+
+      <div id="lookupResultsArea"></div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- VIEW 4: SINGLE ADMIN PORTAL                               -->
+  <!-- ========================================================= -->
+  <div id="view-admin" class="view-section">
+    <div class="container admin-wrap">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+        <div>
+          <span class="section-kicker" style="text-align: left;">Organizer Command Center</span>
+          <h2 class="section-title" style="font-size: 2.2rem;">From Clinics to Cocktails — Admin</h2>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="nav-btn" onclick="toggleTierPrices()">
+            Wave Mode: <strong id="waveStatusLabel" style="color: var(--gold-light);">Early Bird (₹1000 / ₹1500)</strong>
+          </button>
+          <button class="nav-btn" onclick="exportBookingsCSV()">⬇ Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Top KPIs including Total Visits, Paid Headcount, Locked Unpaid -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Website Visits</div>
+          <div class="kpi-val" id="kpiVisits">0</div>
+          <div class="kpi-sub">Tracked portal page views</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Confirmed Paid Passes</div>
+          <div class="kpi-val" id="kpiPaidCount">0</div>
+          <div class="kpi-sub" id="kpiPaidSplit">0 Alcohol • 0 Non-Alc</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Confirmed Revenue</div>
+          <div class="kpi-val" id="kpiRevenue">₹0</div>
+          <div class="kpi-sub" id="kpiPendingSub">0 awaiting screenshot review</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Locked &amp; Unpaid</div>
+          <div class="kpi-val" id="kpiLockedCount">0</div>
+          <div class="kpi-sub" id="kpiLockedVal">₹0 promised before 4 Nov</div>
+        </div>
+      </div>
+
+      <!-- Admin Sub-Navigation -->
+      <div class="admin-tabs">
+        <button class="admin-tab-btn active" id="atab-pending" onclick="switchAdminTab('pending')">
+          ⏳ Pending Review (<span id="cnt-pending">0</span>)
+        </button>
+        <button class="admin-tab-btn" id="atab-paid" onclick="switchAdminTab('paid')">
+          ✅ Confirmed Paid (<span id="cnt-paid">0</span>)
+        </button>
+        <button class="admin-tab-btn" id="atab-locked" onclick="switchAdminTab('locked')">
+          🔒 Locked / Unpaid (<span id="cnt-locked">0</span>)
+        </button>
+        <button class="admin-tab-btn" id="atab-inflow" onclick="switchAdminTab('inflow')">
+          📊 Date-Wise Inflow Forecast
+        </button>
+        <button class="admin-tab-btn" id="atab-offline" onclick="switchAdminTab('offline')">
+          🎟️ Offline Passes &amp; Batch PDF
+        </button>
+      </div>
+
+      <!-- TAB 1: PENDING SCREENSHOT REVIEW -->
+      <div id="apanel-pending" class="admin-panel">
+        <div class="panel-card">
+          <div class="panel-title">Screenshots Awaiting Your Approval</div>
+          <div id="pendingListContainer"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: CONFIRMED PAID GUESTS -->
+      <div id="apanel-paid" class="admin-panel" style="display: none;">
+        <div class="panel-card">
+          <div class="panel-title">
+            <span>Confirmed Paid Guests (Online &amp; Offline)</span>
+            <input type="text" id="paidSearchInput" placeholder="Search name, batch, phone..." onkeyup="renderAdmin()" style="max-width: 240px; padding: 8px 12px; font-size: 0.84rem;" />
+          </div>
+          <div id="paidListContainer"></div>
+        </div>
+      </div>
+
+      <!-- TAB 3: LOCKED & UNPAID (NO SEND PASS BUTTON) -->
+      <div id="apanel-locked" class="admin-panel" style="display: none;">
+        <div class="panel-card">
+          <div class="panel-title">Locked Passes — Payment Pending</div>
+          <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
+            These guests reserved Early Bird pricing without paying yet. Pass generation and pass sending are disabled until they upload a payment screenshot and you approve it. Use <strong>Send Payment Reminder</strong> to nudge them on WhatsApp.
+          </p>
+          <div id="lockedListContainer"></div>
+        </div>
+      </div>
+
+      <!-- TAB 4: DATE-WISE PAYMENT INFLOW FORECAST -->
+      <div id="apanel-inflow" class="admin-panel" style="display: none;">
+        <div class="panel-card">
+          <div class="panel-title">Expected Date-Wise Payment Inflow (From Pay Later Locks)</div>
+          <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
+            Breakdown of when locked-pass students plan to complete their payments before <strong>4 November</strong>.
+          </p>
+          <div id="inflowChartContainer"></div>
+        </div>
+      </div>
+
+      <!-- TAB 5: OFFLINE PASS STUDIO -->
+      <div id="apanel-offline" class="admin-panel" style="display: none;">
+        <div class="panel-card">
+          <div class="panel-title">Issue Instant Offline / Cash Pass</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Guest Name *</label>
+              <input type="text" id="offName" placeholder="Full Name" />
+            </div>
+            <div class="form-group">
+              <label>Batch *</label>
+              <select id="offBatch">
+                <option value="2020">2020 Batch</option>
+                <option value="2021">2021 Batch</option>
+                <option value="2022">2022 Batch</option>
+                <option value="2023">2023 Batch</option>
+                <option value="2024">2024 Batch</option>
+                <option value="2025">2025 Batch</option>
+                <option value="2026">2026 Batch</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>WhatsApp Number *</label>
+              <input type="tel" id="offPhone" maxlength="10" placeholder="10-digit WhatsApp number" />
+            </div>
+            <div class="form-group">
+              <label>Pass Tier *</label>
+              <select id="offTier">
+                <option value="ALCOHOLIC">Unlimited Alcohol (₹1,500)</option>
+                <option value="NON_ALCOHOLIC">Non-Alcoholic (₹1,000)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Quantity</label>
+              <select id="offQty">
+                <option value="1">1 Pass</option>
+                <option value="2">2 Passes</option>
+                <option value="3">3 Passes</option>
+                <option value="4">4 Passes</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Payment Mode</label>
+              <select id="offPayMode">
+                <option value="CASH">Cash Collected</option>
+                <option value="DIRECT_UPI">Direct UPI</option>
+                <option value="COMPLIMENTARY">Complimentary / VIP</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-gold-primary" onclick="issueInstantOfflinePass()">
+            Generate Offline Pass &amp; Prepare WhatsApp Send
+          </button>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Print-Ready A4 Offline Pass Sheet Generator (PDF)</div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
+            Generates a print-ready A4 PDF sheet (10 black-and-gold tickets per page with unique QR codes &amp; serial IDs). Printed tickets start as <strong>UNASSIGNED</strong> so lost physical passes cannot enter at the gate until activated below.
+          </p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Batch Tier to Print</label>
+              <select id="batchPrintTier">
+                <option value="ALCOHOLIC">Unlimited Alcohol Passes (OFF-AL-xxx)</option>
+                <option value="NON_ALCOHOLIC">Non-Alcoholic Passes (OFF-NA-xxx)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Number of Passes to Generate</label>
+              <select id="batchPrintCount">
+                <option value="10">10 Passes (1 A4 Page)</option>
+                <option value="20">20 Passes (2 A4 Pages)</option>
+                <option value="30">30 Passes (3 A4 Pages)</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-tier-outline" onclick="generateOfflineBatchPDF()">
+            🖨️ Generate &amp; Download Print-Ready A4 PDF
+          </button>
+
+          <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-subtle);">
+            <div style="font-weight: 800; color: var(--gold-light); margin-bottom: 10px;">Activate a Pre-Printed Physical Pass (When Cash Is Handed Over)</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Printed Pass Serial ID *</label>
+                <input type="text" id="actSerialId" placeholder="e.g. OFF-AL-001" />
+              </div>
+              <div class="form-group">
+                <label>Guest Name *</label>
+                <input type="text" id="actGuestName" placeholder="Student Name" />
+              </div>
+              <div class="form-group">
+                <label>Batch</label>
+                <select id="actBatch">
+                  <option value="2020">2020</option>
+                  <option value="2021">2021</option>
+                  <option value="2022">2022</option>
+                  <option value="2023" selected>2023</option>
+                  <option value="2024">2024</option>
+                  <option value="2025">2025</option>
+                  <option value="2026">2026</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>WhatsApp Number</label>
+                <input type="tel" id="actPhone" maxlength="10" placeholder="10-digit WhatsApp" />
+              </div>
+            </div>
+            <button class="btn-sm gold" style="padding: 12px 18px;" onclick="activatePrintedPass()">
+              Activate Physical Pass for Gate Entry
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- VIEW 5: MOBILE GATE QR CHECK-IN SCANNER                   -->
+  <!-- ========================================================= -->
+  <div id="view-gate" class="view-section">
+    <div class="container gate-wrap">
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Six Star Venue Gate Scanner</span>
+          <button class="nav-btn" onclick="stopScannerAndHome()">← Exit</button>
+        </div>
+        <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
+          Scan guest QR passes at entry. Automatically flags <strong>UNLIMITED ALCOHOL</strong> vs. <strong>NON-ALCOHOLIC</strong> wristband tier and blocks duplicate screenshots.
+        </p>
+
+        <div id="qr-reader"></div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="manualPassCode" placeholder="Or enter Pass ID (e.g. PASS-8A2F)" style="flex: 1;" />
+          <button class="btn-sm gold" style="padding: 0 18px;" onclick="verifyPassId(document.getElementById('manualPassCode').value)">Verify</button>
+        </div>
+
+        <div id="scanResultBanner" class="scan-result-banner"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FOR SCREENSHOT PREVIEW / PASS PREVIEW -->
+  <div class="modal-backdrop" id="globalModal" onclick="if(event.target===this) closeModal()">
+    <div class="modal-box" id="modalContent"></div>
+  </div>
+
+  <!-- LIVE FOMO TOAST -->
+  <div class="fomo-toast" id="fomoToast">
+    <div class="fomo-toast-badge">🥂</div>
+    <div class="fomo-toast-text" id="fomoToastText">
+      Someone from <strong>2023 Batch</strong> locked 2 Unlimited Alcohol passes
+      <span>Just now • Early Bird ₹1,500</span>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================================
+       1. EVENT & BATCH COLLECTOR CONFIGURATION (EDIT HERE)
+       ============================================================================ */
+    const EVENT_CONFIG = {
+      title: "From Clinics to Cocktails",
+      subtitle: "An Evening to Celebrate Us",
+      date: "16 December",
+      venue: "Six Star",
+      time: "6:30 PM – 11:00 PM",
+      // Hard booking deadline: 4 November 2026, 23:59:59 IST
+      bookingCutoffISO: "2026-11-04T23:59:59+05:30",
+      adminPin: "2021", // Change your Admin & Gate Scanner PIN here
+      // Optional: Paste your Firebase Realtime Database URL (e.g. "https://your-project-default-rtdb.firebaseio.com")
+      // Leave empty "" to run 100% locally in browser storage for testing.
+      firebaseDbUrl: "https://clinics-to-cocktails-default-rtdb.firebaseio.com"
+    };
+
+    // Exact Batch-to-Collector Routing
+    const BATCH_COLLECTORS = {
+      "2020": { name: "Dr. Anuj", qrFile: "Dr Anuj.jpg", batchesLabel: "2020, 2024, 2025 & 2026 Batches" },
+      "2021": { name: "Dr. Naina", qrFile: "Dr Naina.jpg", batchesLabel: "2021 & 2022 Batches" },
+      "2022": { name: "Dr. Naina", qrFile: "Dr Naina.jpg", batchesLabel: "2021 & 2022 Batches" },
+      "2023": { name: "Dr. Madhav", qrFile: "Dr Madhav.jpg", batchesLabel: "2023 Batch" },
+      "2024": { name: "Dr. Anuj", qrFile: "Dr Anuj.jpg", batchesLabel: "2020, 2024, 2025 & 2026 Batches" },
+      "2025": { name: "Dr. Anuj", qrFile: "Dr Anuj.jpg", batchesLabel: "2020, 2024, 2025 & 2026 Batches" },
+      "2026": { name: "Dr. Anuj", qrFile: "Dr Anuj.jpg", batchesLabel: "2020, 2024, 2025 & 2026 Batches" }
+    };
+
+    /* ============================================================================
+       2. UNIFIED STORAGE LAYER (FIREBASE REST + LOCAL STORAGE FALLBACK)
+       ============================================================================ */
+    const LOCAL_KEY = "fc2c_portal_state_v1";
+
+    let appState = {
+      visits: 142,
+      earlyBirdActive: true,
+      earlyBirdLeftAL: 14,
+      earlyBirdLeftNA: 19,
+      bookings: {}
+    };
+
+    async function loadState() {
+      if (EVENT_CONFIG.firebaseDbUrl) {
+        try {
+          const res = await fetch(`${EVENT_CONFIG.firebaseDbUrl}/portal.json`);
+          const data = await res.json();
+          if (data) {
+            appState = { ...appState, ...data, bookings: data.bookings || {} };
+          }
+          document.getElementById("dbModeBadge").textContent = "Live Cloud Sync";
+        } catch (e) {
+          console.warn("Firebase fetch fallback to local:", e);
+        }
+      } else {
+        const raw = localStorage.getItem(LOCAL_KEY);
+        if (raw) {
+          try { appState = { ...appState, ...JSON.parse(raw) }; } catch (e) {}
+        }
+        document.getElementById("dbModeBadge").textContent = "Local Laptop Mode";
+      }
+
+      // Increment visit count once per session
+      if (!sessionStorage.getItem("fc2c_visited")) {
+        sessionStorage.setItem("fc2c_visited", "1");
+        appState.visits = (appState.visits || 0) + 1;
+        await saveState();
+      }
+      refreshAllUI();
+    }
+
+    async function saveState() {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
+      if (EVENT_CONFIG.firebaseDbUrl) {
+        try {
+          await fetch(`${EVENT_CONFIG.firebaseDbUrl}/portal.json`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(appState)
+          });
+        } catch (e) {
+          console.error("Cloud sync error:", e);
+        }
+      }
+    }
+
+    function getCurrentPrices() {
+      return appState.earlyBirdActive
+        ? { NON_ALCOHOLIC: 1000, ALCOHOLIC: 1500 }
+        : { NON_ALCOHOLIC: 1500, ALCOHOLIC: 2500 };
+    }
+
+    /* ============================================================================
+       3. VIEW NAVIGATION & LANDING SCARCITY / DEADLINE CLOCK
+       ============================================================================ */
+    let selectedTier = "ALCOHOLIC";
+    let paymentChoice = "PAY_NOW";
+    let compressedScreenshotDataUrl = "";
+    let checkoutTimerInterval = null;
+    let html5QrScanner = null;
+
+    function switchView(viewName) {
+      document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".nav-btn").forEach(el => el.classList.remove("active"));
+      document.getElementById(`view-${viewName}`).classList.add("active");
+      const navBtn = document.getElementById(`nav-${viewName}`);
+      if (navBtn) navBtn.classList.add("active");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function refreshAllUI() {
+      const prices = getCurrentPrices();
+      document.getElementById("cardPriceNA").textContent = `₹${prices.NON_ALCOHOLIC.toLocaleString("en-IN")}`;
+      document.getElementById("cardPriceAL").textContent = `₹${prices.ALCOHOLIC.toLocaleString("en-IN")}`;
+      document.getElementById("chkPriceNA").textContent = ` ₹${prices.NON_ALCOHOLIC.toLocaleString("en-IN")}`;
+      document.getElementById("chkPriceAL").textContent = ` ₹${prices.ALCOHOLIC.toLocaleString("en-IN")}`;
+
+      const leftAL = Math.max(1, appState.earlyBirdLeftAL);
+      const leftNA = Math.max(1, appState.earlyBirdLeftNA);
+      document.getElementById("scarcityLine").innerHTML =
+        `Hurry! Only <strong>${leftAL}</strong> Early Bird Alcoholic &amp; <strong>${leftNA}</strong> Non-Alcoholic passes left at this price`;
+
+      const claimedPct = Math.min(96, Math.max(68, 100 - Math.round((leftAL + leftNA) * 0.55)));
+      document.getElementById("waveProgressFill").style.width = `${claimedPct}%`;
+      document.getElementById("waveSubText").textContent =
+        `${claimedPct}% of Early Bird wave claimed • Prices jump to ₹1,500 & ₹2,500 once this wave sells out`;
+
+      recalcTotal();
+      if (document.getElementById("view-admin").classList.contains("active")) {
+        renderAdmin();
+      }
+    }
+
+    // Countdown to 4 November
+    function updateCutoffClock() {
+      const cutoff = new Date(EVENT_CONFIG.bookingCutoffISO).getTime();
+      const now = Date.now();
+      const diff = cutoff - now;
+
+      if (diff <= 0) {
+        document.getElementById("cutoffHeading").textContent = "Online Booking Portal Closed (4 November Cutoff Reached)";
+        ["cd-days", "cd-hours", "cd-mins", "cd-secs"].forEach(id => document.getElementById(id).textContent = "00");
+        return;
+      }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      document.getElementById("cd-days").textContent = String(d).padStart(2, "0");
+      document.getElementById("cd-hours").textContent = String(h).padStart(2, "0");
+      document.getElementById("cd-mins").textContent = String(m).padStart(2, "0");
+      document.getElementById("cd-secs").textContent = String(s).padStart(2, "0");
+    }
+    setInterval(updateCutoffClock, 1000);
+    updateCutoffClock();
+
+    // Subtle social proof toast across batches 2020-2026
+    const proofFeed = [
+      { batch: "2023 Batch", action: "locked 2 Unlimited Alcohol passes", sub: "2 mins ago • Early Bird ₹1,500" },
+      { batch: "2021 Batch", action: "booked 3 Unlimited Alcohol passes", sub: "5 mins ago • Early Bird ₹1,500" },
+      { batch: "2024 Batch", action: "locked 1 Non-Alcoholic pass", sub: "7 mins ago • Early Bird ₹1,000" },
+      { batch: "2022 Batch", action: "booked 2 Unlimited Alcohol passes", sub: "10 mins ago • Early Bird ₹1,500" },
+      { batch: "2025 Batch", action: "locked 2 Non-Alcoholic passes", sub: "13 mins ago • Early Bird ₹1,000" }
+    ];
+    let proofIdx = 0;
+    setInterval(() => {
+      proofIdx = (proofIdx + 1) % proofFeed.length;
+      const item = proofFeed[proofIdx];
+      document.getElementById("fomoToastText").innerHTML =
+        `Someone from <strong>${item.batch}</strong> ${item.action}<span>${item.sub}</span>`;
+    }, 6000);
+
+    /* ============================================================================
+       4. CHECKOUT, BATCH QR ROUTING & PAY LATER FLOW
+       ============================================================================ */
+    function openBooking(tier) {
+      if (tier) selectTier(tier);
+      switchView("booking");
+      startCheckoutTimer();
+
+      // Constrain promised payment date between today and 4 Nov
+      const dateInput = document.getElementById("promisedPayDate");
+      const todayStr = new Date().toISOString().split("T")[0];
+      dateInput.min = todayStr;
+      dateInput.max = "2026-11-04";
+      if (!dateInput.value) dateInput.value = todayStr <= "2026-11-04" ? todayStr : "2026-11-04";
+    }
+
+    function startCheckoutTimer() {
+      clearInterval(checkoutTimerInterval);
+      let secs = 7 * 60;
+      checkoutTimerInterval = setInterval(() => {
+        if (secs <= 0) {
+          clearInterval(checkoutTimerInterval);
+          return;
+        }
+        secs--;
+        const m = String(Math.floor(secs / 60)).padStart(2, "0");
+        const s = String(secs % 60).padStart(2, "0");
+        document.getElementById("checkoutSessionTimer").textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function selectTier(tier) {
+      selectedTier = tier;
+      document.getElementById("opt-NON_ALCOHOLIC").classList.toggle("selected", tier === "NON_ALCOHOLIC");
+      document.getElementById("opt-ALCOHOLIC").classList.toggle("selected", tier === "ALCOHOLIC");
+      recalcTotal();
+    }
+
+    function recalcTotal() {
+      const prices = getCurrentPrices();
+      const qty = parseInt(document.getElementById("guestQty").value || "1", 10);
+      const unit = prices[selectedTier];
+      const total = unit * qty;
+      const tierText = selectedTier === "ALCOHOLIC" ? "Unlimited Alcohol" : "Non-Alcoholic";
+      document.getElementById("sumLabel").textContent = `${qty} × ${tierText}`;
+      document.getElementById("sumAmount").textContent = `₹${total.toLocaleString("en-IN")}`;
+      document.getElementById("qrPayAmount").textContent = `₹${total.toLocaleString("en-IN")}`;
+      document.getElementById("lockRateText").textContent = `₹${unit.toLocaleString("en-IN")}`;
+    }
+
+    function handleBatchChange() {
+      const batch = document.getElementById("guestBatch").value;
+      const lockedNotice = document.getElementById("batchLockedNotice");
+      const qrBox = document.getElementById("collectorQrDisplay");
+
+      if (!batch || !BATCH_COLLECTORS[batch]) {
+        lockedNotice.style.display = "block";
+        qrBox.style.display = "none";
+        return;
+      }
+
+      const collector = BATCH_COLLECTORS[batch];
+      lockedNotice.style.display = "none";
+      qrBox.style.display = "block";
+      document.getElementById("collectorNameTitle").textContent = collector.name;
+      document.getElementById("collectorBatchSub").textContent = `Payment Receiver for ${collector.batchesLabel}`;
+      document.getElementById("collectorQrImg").src = collector.qrFile;
+    }
+
+    function setPaymentChoice(mode) {
+      paymentChoice = mode;
+      document.getElementById("tabPayNow").classList.toggle("active", mode === "PAY_NOW");
+      document.getElementById("tabPayLater").classList.toggle("active", mode === "PAY_LATER");
+      document.getElementById("payNowSection").style.display = mode === "PAY_NOW" ? "block" : "none";
+      document.getElementById("payLaterSection").style.display = mode === "PAY_LATER" ? "block" : "none";
+    }
+
+    function handleScreenshotSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          const canvas = document.createElement("canvas");
+          const maxW = 720;
+          const scale = Math.min(1, maxW / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          compressedScreenshotDataUrl = canvas.toDataURL("image/jpeg", 0.72);
+          document.getElementById("screenshotPreviewImg").src = compressedScreenshotDataUrl;
+          document.getElementById("screenshotPreviewWrap").style.display = "block";
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function validateGuestBasics() {
+      const name = document.getElementById("guestName").value.trim();
+      const batch = document.getElementById("guestBatch").value;
+      const whatsapp = document.getElementById("guestWhatsapp").value.replace(/\D/g, "");
+      if (!name) { alert("Please enter your full name."); return null; }
+      if (!batch) { alert("Please select your batch (2020–2026)."); return null; }
+      if (whatsapp.length !== 10) { alert("Please enter a valid 10-digit WhatsApp number."); return null; }
+      return { name, batch, whatsapp };
+    }
+
+    function generateId(prefix) {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let code = "";
+      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return `${prefix}-${code}`;
+    }
+
+    async function submitPayNowBooking() {
+      const basics = validateGuestBasics();
+      if (!basics) return;
+      if (!compressedScreenshotDataUrl) {
+        alert("Please upload your payment screenshot before submitting.");
+        return;
+      }
+
+      const qty = parseInt(document.getElementById("guestQty").value, 10);
+      const unitPrice = getCurrentPrices()[selectedTier];
+      const collector = BATCH_COLLECTORS[basics.batch];
+      const id = generateId("PASS");
+
+      appState.bookings[id] = {
+        id,
+        channel: "ONLINE",
+        name: basics.name,
+        batch: basics.batch,
+        whatsapp: basics.whatsapp,
+        tier: selectedTier,
+        qty,
+        unitPrice,
+        totalAmount: unitPrice * qty,
+        collectorName: collector.name,
+        status: "PENDING_REVIEW",
+        screenshot: compressedScreenshotDataUrl,
+        whatsappDispatched: false,
+        checkedIn: false,
+        checkedInAt: null,
+        createdAt: Date.now()
+      };
+
+      await saveState();
+      resetBookingForm();
+      showBookingConfirmationModal(appState.bookings[id]);
+    }
+
+    async function submitPayLaterLock() {
+      const basics = validateGuestBasics();
+      if (!basics) return;
+      const promisedDate = document.getElementById("promisedPayDate").value;
+      if (!promisedDate) {
+        alert("Please select the date when you plan to pay.");
+        return;
+      }
+
+      const qty = parseInt(document.getElementById("guestQty").value, 10);
+      const unitPrice = getCurrentPrices()[selectedTier];
+      const id = generateId("LOCK");
+
+      // Note: Pay Later lock is NOT routed to a collector yet and generates NO pass
+      appState.bookings[id] = {
+        id,
+        channel: "ONLINE",
+        name: basics.name,
+        batch: basics.batch,
+        whatsapp: basics.whatsapp,
+        tier: selectedTier,
+        qty,
+        unitPrice,
+        totalAmount: unitPrice * qty,
+        status: "PAY_LATER_LOCKED",
+        promisedPayDate: promisedDate,
+        whatsappDispatched: false,
+        checkedIn: false,
+        createdAt: Date.now()
+      };
+
+      await saveState();
+      resetBookingForm();
+      showBookingConfirmationModal(appState.bookings[id]);
+    }
+
+    function resetBookingForm() {
+      document.getElementById("guestName").value = "";
+      document.getElementById("guestWhatsapp").value = "";
+      document.getElementById("paymentScreenshot").value = "";
+      document.getElementById("screenshotPreviewWrap").style.display = "none";
+      compressedScreenshotDataUrl = "";
+    }
+
+    function showBookingConfirmationModal(b) {
+      const isLock = b.status === "PAY_LATER_LOCKED";
+      const html = `
+        <div style="font-size: 2.2rem; margin-bottom: 8px;">${isLock ? "🔒" : "⏳"}</div>
+        <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; color: var(--gold-light); margin-bottom: 6px;">
+          ${isLock ? "Early Bird Rate Locked!" : "Screenshot Submitted for Review"}
+        </h3>
+        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 14px;">
+          ${isLock
+            ? `Your Early Bird rate of <strong>₹${b.totalAmount.toLocaleString("en-IN")}</strong> is reserved for <strong>${b.name} (${b.batch} Batch)</strong>. Remember to complete payment on or before <strong>${b.promisedPayDate}</strong>.`
+            : `Thank you, <strong>${b.name}</strong>! Your payment screenshot (to <strong>${b.collectorName}</strong>) is under admin verification. Once approved, your pass will be sent directly to your WhatsApp (<strong>+91 ${b.whatsapp}</strong>).`
+          }
+        </p>
+        <div style="background: #090909; border: 1px dashed var(--gold-primary); padding: 12px; border-radius: 10px; margin-bottom: 16px;">
+          <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--gold-primary);">Your Reference ID</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: var(--gold-light); letter-spacing: 0.08em;">${b.id}</div>
+        </div>
+        <button class="btn-gold-primary" onclick="closeModal(); switchView('landing');">Done</button>
+      `;
+      openModal(html);
+    }
+
+    /* ============================================================================
+       5. GUEST LOOKUP & PAY LATER COMPLETION
+       ============================================================================ */
+    function searchBooking() {
+      const q = document.getElementById("lookupQuery").value.trim().toUpperCase();
+      const area = document.getElementById("lookupResultsArea");
+      if (!q) return;
+
+      const matches = Object.values(appState.bookings).filter(
+        b => b.id.toUpperCase() === q || (b.whatsapp && b.whatsapp.includes(q.replace(/\D/g, "")) && q.replace(/\D/g, "").length >= 6)
+      );
+
+      if (!matches.length) {
+        area.innerHTML = `<div class="panel-card" style="text-align:center; color: var(--text-secondary);">No booking found for "${q}".</div>`;
+        return;
+      }
+
+      area.innerHTML = matches.map(b => {
+        const tierLabel = b.tier === "ALCOHOLIC" ? "Unlimited Alcohol Pass" : "Non-Alcoholic Pass";
+        if (b.status === "APPROVED" || b.status === "ISSUED") {
+          return `
+            <div class="panel-card" style="text-align:center;">
+              <span class="badge approved">Approved &amp; Confirmed</span>
+              <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.7rem; color:var(--gold-light); margin-top:8px;">${b.name} (${b.batch} Batch)</h3>
+              <p style="font-size:0.86rem; color:var(--text-secondary); margin-bottom:12px;">${b.qty} × ${tierLabel} • ID: <strong>${b.id}</strong></p>
+              <button class="btn-gold-primary" style="max-width:280px;" onclick="viewDigitalPass('${b.id}')">View &amp; Download QR Pass</button>
+            </div>
+          `;
+        }
+        if (b.status === "PENDING_REVIEW") {
+          return `
+            <div class="panel-card" style="text-align:center;">
+              <span class="badge pending">Payment Under Verification</span>
+              <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.6rem; color:var(--gold-light); margin-top:8px;">${b.name} (${b.batch} Batch)</h3>
+              <p style="font-size:0.86rem; color:var(--text-secondary);">ID: <strong>${b.id}</strong> • Screenshot received. Your pass will be sent to <strong>+91 ${b.whatsapp}</strong> as soon as the admin approves it.</p>
+            </div>
+          `;
+        }
+        if (b.status === "PAY_LATER_LOCKED") {
+          const collector = BATCH_COLLECTORS[b.batch] || BATCH_COLLECTORS["2023"];
+          return `
+            <div class="panel-card">
+              <span class="badge locked">Locked — Payment Pending (Promised: ${b.promisedPayDate})</span>
+              <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.65rem; color:var(--gold-light); margin-top:8px;">${b.name} (${b.batch} Batch)</h3>
+              <p style="font-size:0.86rem; color:var(--text-secondary); margin-bottom:14px;">
+                Locked Amount: <strong style="color:var(--gold-light);">₹${b.totalAmount.toLocaleString("en-IN")}</strong> (${b.qty} × ${tierLabel})
+              </p>
+              <div class="collector-qr-box">
+                <div style="font-size:0.75rem; color:var(--gold-primary); font-weight:800;">PAY TO YOUR BATCH COORDINATOR: ${collector.name.toUpperCase()}</div>
+                <img src="${collector.qrFile}" alt="${collector.name} QR" />
+                <div style="font-size:0.82rem; color:var(--text-secondary);">Pay ₹${b.totalAmount.toLocaleString("en-IN")} &amp; upload screenshot below to unlock pass generation:</div>
+                <input type="file" accept="image/*" style="margin-top:10px; width:100%;" onchange="completeLockedPayment('${b.id}', event)" />
+              </div>
+            </div>
+          `;
+        }
+        return "";
+      }).join("");
+    }
+
+    function completeLockedPayment(bookingId, event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = async function () {
+          const canvas = document.createElement("canvas");
+          const scale = Math.min(1, 720 / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          const b = appState.bookings[bookingId];
+          const collector = BATCH_COLLECTORS[b.batch] || BATCH_COLLECTORS["2023"];
+          b.screenshot = canvas.toDataURL("image/jpeg", 0.72);
+          b.collectorName = collector.name;
+          b.status = "PENDING_REVIEW";
+          await saveState();
+          alert("Screenshot uploaded! Your booking is now queued for admin approval.");
+          searchBooking();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /* ============================================================================
+       6. DIGITAL QR PASS RENDERER & PNG DOWNLOAD
+       ============================================================================ */
+    function viewDigitalPass(id) {
+      const b = appState.bookings[id];
+      if (!b || (b.status !== "APPROVED" && b.status !== "ISSUED")) return;
+
+      const isAlc = b.tier === "ALCOHOLIC";
+      const html = `
+        <div id="printableDigitalPass" class="digital-pass-shell">
+          <div style="font-size:0.68rem; letter-spacing:0.22em; color:var(--gold-primary); text-transform:uppercase; font-weight:800;">Official Entry Pass</div>
+          <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.85rem; color:var(--gold-light); line-height:1.1; margin:4px 0;">From Clinics to Cocktails</h3>
+          <div style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:10px;">16 December • Six Star • 6:30 PM – 11:00 PM</div>
+
+          <div class="pass-tier-banner ${isAlc ? "alcohol" : "nonalcohol"}">
+            ${isAlc ? "🥂 Unlimited Alcohol Pass" : "🍽️ Non-Alcoholic Pass"}
+          </div>
+
+          <div class="pass-qr-frame">
+            <div id="modalQrMount"></div>
+          </div>
+
+          <div style="font-size:1.15rem; font-weight:800; color:var(--text-primary);">${b.name}</div>
+          <div style="font-size:0.8rem; color:var(--gold-light); font-weight:700;">${b.batch} Batch • Admits: ${b.qty}</div>
+
+          <div class="pass-meta-grid">
+            <div><span>Pass ID</span><strong>${b.id}</strong></div>
+            <div><span>Channel</span><strong>${b.channel}</strong></div>
+            <div><span>Venue</span><strong>Six Star</strong></div>
+            <div><span>Transport</span><strong>Bus Included</strong></div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button class="btn-gold-primary" onclick="downloadPassPNG('${b.id}')">⬇ Download Pass Image</button>
+          <button class="nav-btn" onclick="closeModal()">Close</button>
+        </div>
+      `;
+      openModal(html);
+
+      setTimeout(() => {
+        const mount = document.getElementById("modalQrMount");
+        mount.innerHTML = "";
+        new QRCode(mount, {
+          text: b.id,
+          width: 150,
+          height: 150,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      }, 60);
+    }
+
+    async function downloadPassPNG(id) {
+      const node = document.getElementById("printableDigitalPass");
+      const canvas = await html2canvas(node, { backgroundColor: "#070707", scale: 2 });
+      const link = document.createElement("a");
+      link.download = `${id}_ClinicsToCocktails.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    /* ============================================================================
+       7. SINGLE ADMIN PORTAL (APPROVAL, MANUAL WHATSAPP, INFLOW, OFFLINE PDF)
+       ============================================================================ */
+    let adminAuthenticated = false;
+    let activeAdminTab = "pending";
+
+    function openAdminGate() {
+      if (adminAuthenticated) {
+        switchView("admin");
+        renderAdmin();
+        return;
+      }
+      const pin = prompt("Enter Admin PIN:");
+      if (pin === EVENT_CONFIG.adminPin) {
+        adminAuthenticated = true;
+        switchView("admin");
+        renderAdmin();
+      } else if (pin !== null) {
+        alert("Incorrect PIN.");
+      }
+    }
+
+    function switchAdminTab(tab) {
+      activeAdminTab = tab;
+      document.querySelectorAll(".admin-tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".admin-panel").forEach(p => p.style.display = "none");
+      document.getElementById(`atab-${tab}`).classList.add("active");
+      document.getElementById(`apanel-${tab}`).style.display = "block";
+      renderAdmin();
+    }
+
+    async function toggleTierPrices() {
+      appState.earlyBirdActive = !appState.earlyBirdActive;
+      await saveState();
+      refreshAllUI();
+    }
+
+    function renderAdmin() {
+      document.getElementById("waveStatusLabel").textContent = appState.earlyBirdActive
+        ? "Early Bird (₹1000 / ₹1500)"
+        : "Regular Phase (₹1500 / ₹2500)";
+
+      const all = Object.values(appState.bookings);
+      const pending = all.filter(b => b.status === "PENDING_REVIEW");
+      const paid = all.filter(b => b.status === "APPROVED" || b.status === "ISSUED");
+      const locked = all.filter(b => b.status === "PAY_LATER_LOCKED");
+
+      // KPIs
+      let paidPasses = 0, alcCount = 0, nonAlcCount = 0, revenue = 0;
+      paid.forEach(b => {
+        paidPasses += b.qty;
+        if (b.tier === "ALCOHOLIC") alcCount += b.qty; else nonAlcCount += b.qty;
+        revenue += (b.totalAmount || 0);
+      });
+
+      let lockedPasses = 0, lockedValue = 0;
+      locked.forEach(b => {
+        lockedPasses += b.qty;
+        lockedValue += (b.totalAmount || 0);
+      });
+
+      document.getElementById("kpiVisits").textContent = (appState.visits || 0).toLocaleString("en-IN");
+      document.getElementById("kpiPaidCount").textContent = paidPasses;
+      document.getElementById("kpiPaidSplit").textContent = `${alcCount} Alcohol • ${nonAlcCount} Non-Alc`;
+      document.getElementById("kpiRevenue").textContent = `₹${revenue.toLocaleString("en-IN")}`;
+      document.getElementById("kpiPendingSub").textContent = `${pending.length} awaiting screenshot review`;
+      document.getElementById("kpiLockedCount").textContent = lockedPasses;
+      document.getElementById("kpiLockedVal").textContent = `₹${lockedValue.toLocaleString("en-IN")} promised before 4 Nov`;
+
+      document.getElementById("cnt-pending").textContent = pending.length;
+      document.getElementById("cnt-paid").textContent = paid.length;
+      document.getElementById("cnt-locked").textContent = locked.length;
+
+      // 1. Pending Screenshot Review
+      const pendingBox = document.getElementById("pendingListContainer");
+      pendingBox.innerHTML = pending.length ? pending.map(b => `
+        <div class="booking-row-card">
+          <div>
+            <span class="badge pending">Pending Review</span>
+            <span class="badge offline" style="margin-left:4px;">Paid to: ${b.collectorName || "Batch QR"}</span>
+            <div style="font-size:1.05rem; font-weight:800; margin-top:6px;">${b.name} • ${b.batch} Batch</div>
+            <div style="font-size:0.84rem; color:var(--text-secondary);">
+              ${b.qty} × ${b.tier === "ALCOHOLIC" ? "Unlimited Alcohol" : "Non-Alcoholic"} = <strong style="color:var(--gold-light);">₹${b.totalAmount.toLocaleString("en-IN")}</strong> • WhatsApp: +91 ${b.whatsapp}
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            ${b.screenshot ? `<button class="btn-sm gold" onclick="previewScreenshot('${b.id}')">👁 View Screenshot</button>` : ""}
+            <button class="btn-sm approve" onclick="approveAndGeneratePass('${b.id}')">✓ Approve &amp; Generate Pass</button>
+            <button class="btn-sm reject" onclick="rejectBooking('${b.id}')">✕ Reject</button>
+          </div>
+        </div>
+      `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No screenshots pending review right now.</div>`;
+
+      // 2. Confirmed Paid Guests (Manual WhatsApp Dispatch)
+      const q = (document.getElementById("paidSearchInput")?.value || "").toLowerCase();
+      const filteredPaid = paid.filter(b =>
+        !q || (b.name && b.name.toLowerCase().includes(q)) || (b.batch && b.batch.includes(q)) || (b.whatsapp && b.whatsapp.includes(q)) || b.id.toLowerCase().includes(q)
+      );
+      const paidBox = document.getElementById("paidListContainer");
+      paidBox.innerHTML = filteredPaid.length ? filteredPaid.map(b => `
+        <div class="booking-row-card">
+          <div>
+            <span class="badge approved">${b.status}</span>
+            <span class="badge offline" style="margin-left:4px;">${b.channel}</span>
+            ${b.whatsappDispatched ? `<span class="badge approved" style="margin-left:4px;">WhatsApp Sent ✓</span>` : `<span class="badge pending" style="margin-left:4px;">Ready to Send</span>`}
+            <div style="font-size:1.02rem; font-weight:800; margin-top:6px;">${b.name || "Unassigned Card"} (${b.batch || "-"} Batch) • ID: ${b.id}</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary);">
+              ${b.qty} × ${b.tier === "ALCOHOLIC" ? "Unlimited Alcohol" : "Non-Alcoholic"} • ₹${(b.totalAmount || 0).toLocaleString("en-IN")} • WhatsApp: ${b.whatsapp ? "+91 " + b.whatsapp : "N/A"}
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-sm gold" onclick="viewDigitalPass('${b.id}')">🎟 View Pass</button>
+            ${b.whatsapp ? `<button class="btn-sm whatsapp" onclick="sendPassViaWhatsApp('${b.id}')">📲 ${b.whatsappDispatched ? "Re-send" : "Send"} Pass on WhatsApp</button>` : ""}
+          </div>
+        </div>
+      `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No confirmed passes yet.</div>`;
+
+      // 3. Locked / Unpaid (NO Approve or Send Pass button; only Send Payment Reminder)
+      const lockedBox = document.getElementById("lockedListContainer");
+      lockedBox.innerHTML = locked.length ? locked.map(b => `
+        <div class="booking-row-card">
+          <div>
+            <span class="badge locked">Unpaid Lock • Promised: ${b.promisedPayDate}</span>
+            <div style="font-size:1.02rem; font-weight:800; margin-top:6px;">${b.name} • ${b.batch} Batch (${b.id})</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary);">
+              ${b.qty} × ${b.tier === "ALCOHOLIC" ? "Unlimited Alcohol" : "Non-Alcoholic"} = <strong style="color:var(--gold-light);">₹${b.totalAmount.toLocaleString("en-IN")}</strong> • WhatsApp: +91 ${b.whatsapp}
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-sm remind" onclick="sendPaymentReminderWhatsApp('${b.id}')">🔔 Send Payment Reminder</button>
+            <button class="btn-sm reject" onclick="rejectBooking('${b.id}')">Release Lock</button>
+          </div>
+        </div>
+      `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No unpaid locks right now.</div>`;
+
+      // 4. Date-Wise Inflow Forecast Table & Chart
+      renderInflowChart(locked);
+    }
+
+    function renderInflowChart(lockedBookings) {
+      const container = document.getElementById("inflowChartContainer");
+      if (!lockedBookings.length) {
+        container.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:18px;">No Pay Later locks recorded yet.</div>`;
+        return;
+      }
+
+      const byDate = {};
+      let maxAmt = 0;
+      lockedBookings.forEach(b => {
+        const d = b.promisedPayDate || "Unspecified";
+        if (!byDate[d]) byDate[d] = { date: d, students: 0, passes: 0, amount: 0 };
+        byDate[d].students += 1;
+        byDate[d].passes += b.qty;
+        byDate[d].amount += b.totalAmount;
+        if (byDate[d].amount > maxAmt) maxAmt = byDate[d].amount;
+      });
+
+      const rows = Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+      container.innerHTML = `
+        <table class="inflow-table">
+          <thead>
+            <tr>
+              <th>Promised Payment Date</th>
+              <th>Students</th>
+              <th>Passes</th>
+              <th>Expected Inflow</th>
+              <th style="width: 35%;">Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const pct = maxAmt ? Math.round((r.amount / maxAmt) * 100) : 0;
+              return `
+                <tr>
+                  <td><strong>${r.date}</strong></td>
+                  <td>${r.students}</td>
+                  <td>${r.passes}</td>
+                  <td style="color:var(--gold-light); font-weight:800;">₹${r.amount.toLocaleString("en-IN")}</td>
+                  <td><div class="inflow-bar-bg"><div class="inflow-bar-fill" style="width:${pct}%;"></div></div></td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function previewScreenshot(id) {
+      const b = appState.bookings[id];
+      if (!b || !b.screenshot) return;
+      openModal(`
+        <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.6rem; color:var(--gold-light); margin-bottom:8px;">
+          Payment Proof — ${b.name} (${b.batch})
+        </h3>
+        <p style="font-size:0.84rem; color:var(--text-secondary); margin-bottom:12px;">
+          Expected: <strong>₹${b.totalAmount.toLocaleString("en-IN")}</strong> • Receiver: <strong>${b.collectorName}</strong>
+        </p>
+        <img src="${b.screenshot}" style="max-width:100%; max-height:60vh; border-radius:12px; border:1px solid var(--gold-primary); margin-bottom:14px;" />
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button class="btn-sm approve" style="padding:10px 18px;" onclick="closeModal(); approveAndGeneratePass('${b.id}');">✓ Approve &amp; Generate Pass</button>
+          <button class="nav-btn" onclick="closeModal()">Close</button>
+        </div>
+      `);
+    }
+
+    async function approveAndGeneratePass(id) {
+      const b = appState.bookings[id];
+      if (!b) return;
+      b.status = "APPROVED";
+      b.approvedAt = Date.now();
+      if (b.tier === "ALCOHOLIC") appState.earlyBirdLeftAL = Math.max(1, appState.earlyBirdLeftAL - b.qty);
+      else appState.earlyBirdLeftNA = Math.max(1, appState.earlyBirdLeftNA - b.qty);
+
+      await saveState();
+      refreshAllUI();
+
+      // Prompt manual WhatsApp send immediately after automated pass generation
+      openModal(`
+        <div style="font-size:2rem; margin-bottom:6px;">✅</div>
+        <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.75rem; color:var(--gold-light); margin-bottom:6px;">
+          Pass Generated for ${b.name}!
+        </h3>
+        <p style="font-size:0.86rem; color:var(--text-secondary); margin-bottom:16px;">
+          Pass ID <strong>${b.id}</strong> is active. Click below to send it directly to <strong>+91 ${b.whatsapp}</strong> on WhatsApp, or download the pass image to attach in chat.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button class="btn-gold-primary" onclick="sendPassViaWhatsApp('${b.id}'); closeModal();">
+            📲 Send Pass Directly via WhatsApp
+          </button>
+          <button class="btn-tier-outline" onclick="closeModal(); viewDigitalPass('${b.id}');">
+            🎟 View / Download Pass Image First
+          </button>
+        </div>
+      `);
+    }
+
+    async function sendPassViaWhatsApp(id) {
+      const b = appState.bookings[id];
+      if (!b || (b.status !== "APPROVED" && b.status !== "ISSUED")) return;
+
+      b.whatsappDispatched = true;
+      await saveState();
+      renderAdmin();
+
+      const tierName = b.tier === "ALCOHOLIC" ? "Unlimited Alcohol Pass" : "Non-Alcoholic Pass";
+      const portalUrl = window.location.href.split("#")[0];
+      const msg =
+`✨ *FROM CLINICS TO COCKTAILS* ✨
+_An Evening to Celebrate Us_
+
+Hey *${b.name}* (${b.batch} Batch), your payment is verified and your official entry pass is ready! 🥂
+
+🎟 *Pass ID:* ${b.id}
+🍾 *Tier:* ${tierName}
+👥 *Admits:* ${b.qty}
+📅 *Date:* 16 December | 6:30 PM – 11:00 PM
+📍 *Venue:* Six Star
+
+Open the portal & tap *"My Pass / Pay Later"* with your Pass ID *${b.id}* to download your QR pass anytime:
+${portalUrl}`;
+
+      window.open(`https://wa.me/91${b.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    function sendPaymentReminderWhatsApp(id) {
+      const b = appState.bookings[id];
+      if (!b || b.status !== "PAY_LATER_LOCKED") return;
+
+      const collector = BATCH_COLLECTORS[b.batch] || BATCH_COLLECTORS["2023"];
+      const tierName = b.tier === "ALCOHOLIC" ? "Unlimited Alcohol Pass" : "Non-Alcoholic Pass";
+      const portalUrl = window.location.href.split("#")[0];
+      const msg =
+`⏳ *Payment Reminder — From Clinics to Cocktails* ✨
+
+Hey *${b.name}* (${b.batch} Batch), you locked your Early Bird rate for *${b.qty} × ${tierName}* (*₹${b.totalAmount.toLocaleString("en-IN")}*) with a planned payment date of *${b.promisedPayDate}*.
+
+Please complete your payment to *${collector.name}* and upload your screenshot before the *4 November* cutoff so we can generate your QR pass!
+
+Complete payment here using ID *${b.id}*:
+${portalUrl}`;
+
+      window.open(`https://wa.me/91${b.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    async function rejectBooking(id) {
+      if (!confirm("Remove / reject this entry?")) return;
+      delete appState.bookings[id];
+      await saveState();
+      refreshAllUI();
+    }
+
+    /* ============================================================================
+       8. OFFLINE PASSES (INSTANT ISSUE + BATCH A4 PDF + PHYSICAL ACTIVATION)
+       ============================================================================ */
+    async function issueInstantOfflinePass() {
+      const name = document.getElementById("offName").value.trim();
+      const batch = document.getElementById("offBatch").value;
+      const whatsapp = document.getElementById("offPhone").value.replace(/\D/g, "");
+      const tier = document.getElementById("offTier").value;
+      const qty = parseInt(document.getElementById("offQty").value, 10);
+      const payMode = document.getElementById("offPayMode").value;
+
+      if (!name || whatsapp.length !== 10) {
+        alert("Please enter guest name and a valid 10-digit WhatsApp number.");
+        return;
+      }
+
+      const unitPrice = payMode === "COMPLIMENTARY" ? 0 : getCurrentPrices()[tier];
+      const id = generateId("OFF");
+
+      appState.bookings[id] = {
+        id,
+        channel: `OFFLINE (${payMode})`,
+        name,
+        batch,
+        whatsapp,
+        tier,
+        qty,
+        unitPrice,
+        totalAmount: unitPrice * qty,
+        status: "ISSUED",
+        whatsappDispatched: false,
+        checkedIn: false,
+        createdAt: Date.now()
+      };
+
+      await saveState();
+      document.getElementById("offName").value = "";
+      document.getElementById("offPhone").value = "";
+      refreshAllUI();
+      approveAndGeneratePass(id);
+    }
+
+    async function generateOfflineBatchPDF() {
+      const tier = document.getElementById("batchPrintTier").value;
+      const count = parseInt(document.getElementById("batchPrintCount").value, 10);
+      const prefix = tier === "ALCOHOLIC" ? "OFF-AL" : "OFF-NA";
+      const existingCount = Object.keys(appState.bookings).filter(k => k.startsWith(prefix)).length;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      const cols = 2, rows = 5;
+      const marginX = 10, marginY = 10;
+      const cardW = 92, cardH = 52;
+      const gapX = 6, gapY = 4;
+
+      for (let i = 0; i < count; i++) {
+        if (i > 0 && i % 10 === 0) doc.addPage();
+        const idxOnPage = i % 10;
+        const col = idxOnPage % cols;
+        const row = Math.floor(idxOnPage / cols);
+        const x = marginX + col * (cardW + gapX);
+        const y = marginY + row * (cardH + gapY);
+
+        const serialNum = String(existingCount + i + 1).padStart(3, "0");
+        const passId = `${prefix}-${serialNum}`;
+
+        // Save UNASSIGNED offline pass to database
+        appState.bookings[passId] = {
+          id: passId,
+          channel: "OFFLINE_PRINT",
+          name: "",
+          batch: "",
+          whatsapp: "",
+          tier,
+          qty: 1,
+          unitPrice: getCurrentPrices()[tier],
+          totalAmount: getCurrentPrices()[tier],
+          status: "UNASSIGNED",
+          checkedIn: false,
+          createdAt: Date.now()
+        };
+
+        // Render temp QR canvas
+        const tempDiv = document.createElement("div");
+        new QRCode(tempDiv, { text: passId, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+        const qrCanvas = tempDiv.querySelector("canvas");
+        const qrDataUrl = qrCanvas.toDataURL("image/png");
+
+        // Black & Gold Ticket Cell
+        doc.setFillColor(12, 12, 12);
+        doc.setDrawColor(212, 175, 55);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(x, y, cardW, cardH, 3, 3, "FD");
+
+        doc.setTextColor(247, 223, 139);
+        doc.setFont("times", "bold");
+        doc.setFontSize(12);
+        doc.text("From Clinics to Cocktails", x + 4, y + 8);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(212, 175, 55);
+        doc.text(tier === "ALCOHOLIC" ? "UNLIMITED ALCOHOL PASS" : "NON-ALCOHOLIC PASS", x + 4, y + 13);
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(220, 215, 205);
+        doc.setFontSize(7.5);
+        doc.text("16 Dec • Six Star • 6:30 PM – 11 PM", x + 4, y + 19);
+        doc.text("Bus Pick & Drop Included", x + 4, y + 24);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(255, 255, 255);
+        doc.text(passId, x + 4, y + 46);
+
+        // White QR Backing + QR
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(x + cardW - 32, y + 10, 28, 28, 2, 2, "F");
+        doc.addImage(qrDataUrl, "PNG", x + cardW - 30.5, y + 11.5, 25, 25);
+      }
+
+      await saveState();
+      refreshAllUI();
+      doc.save(`${prefix}_Offline_Passes_A4.pdf`);
+    }
+
+    async function activatePrintedPass() {
+      const serial = document.getElementById("actSerialId").value.trim().toUpperCase();
+      const name = document.getElementById("actGuestName").value.trim();
+      const batch = document.getElementById("actBatch").value;
+      const whatsapp = document.getElementById("actPhone").value.replace(/\D/g, "");
+
+      const b = appState.bookings[serial];
+      if (!b) { alert(`Serial ID "${serial}" not found. Generate the batch PDF first.`); return; }
+      if (!name) { alert("Please enter the guest's name."); return; }
+
+      b.name = name;
+      b.batch = batch;
+      b.whatsapp = whatsapp;
+      b.status = "ISSUED";
+      await saveState();
+      refreshAllUI();
+      alert(`Physical pass ${serial} is now ACTIVATED for ${name} (${batch} Batch)!`);
+    }
+
+    function exportBookingsCSV() {
+      const rows = [["ID", "Status", "Channel", "Name", "Batch", "WhatsApp", "Tier", "Qty", "Amount", "Collector", "PromisedDate", "CheckedIn"]];
+      Object.values(appState.bookings).forEach(b => {
+        rows.push([
+          b.id, b.status, b.channel, `"${b.name || ""}"`, b.batch || "", b.whatsapp || "",
+          b.tier, b.qty, b.totalAmount || 0, `"${b.collectorName || ""}"`, b.promisedPayDate || "", b.checkedIn ? "YES" : "NO"
+        ]);
+      });
+      const csv = rows.map(r => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "ClinicsToCocktails_GuestList.csv";
+      a.click();
+    }
+
+    /* ============================================================================
+       9. MOBILE GATE QR SCANNER (ANTI-PASSBACK)
+       ============================================================================ */
+    function openGateScanner() {
+      if (!adminAuthenticated) {
+        const pin = prompt("Enter Gate / Admin PIN:");
+        if (pin !== EVENT_CONFIG.adminPin) {
+          if (pin !== null) alert("Incorrect PIN.");
+          return;
+        }
+        adminAuthenticated = true;
+      }
+      switchView("gate");
+      startCameraScanner();
+    }
+
+    function startCameraScanner() {
+      if (html5QrScanner) return;
+      try {
+        html5QrScanner = new Html5Qrcode("qr-reader");
+        html5QrScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (decodedText) => verifyPassId(decodedText)
+        ).catch(() => {});
+      } catch (e) {}
+    }
+
+    function stopScannerAndHome() {
+      if (html5QrScanner) {
+        html5QrScanner.stop().catch(() => {});
+        html5QrScanner = null;
+      }
+      switchView("landing");
+    }
+
+    async function verifyPassId(rawCode) {
+      const id = (rawCode || "").trim().toUpperCase();
+      const banner = document.getElementById("scanResultBanner");
+      if (!id) return;
+
+      const b = appState.bookings[id];
+      if (!b) {
+        banner.className = "scan-result-banner invalid";
+        banner.innerHTML = `❌ INVALID PASS ID: ${id}<br><small>Not found in guest database.</small>`;
+        return;
+      }
+
+      if (b.status !== "APPROVED" && b.status !== "ISSUED") {
+        banner.className = "scan-result-banner invalid";
+        banner.innerHTML = `⛔ ENTRY BLOCKED (${b.status})<br><small>${b.name || id} — Payment not verified or physical pass not activated.</small>`;
+        return;
+      }
+
+      if (b.checkedIn) {
+        const timeStr = new Date(b.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        banner.className = "scan-result-banner invalid";
+        banner.innerHTML = `⚠️ ALREADY CHECKED IN AT ${timeStr}<br><small>${b.name} (${b.batch} Batch) • Duplicate scan blocked.</small>`;
+        return;
+      }
+
+      // Valid Entry -> Lock anti-passback
+      b.checkedIn = true;
+      b.checkedInAt = Date.now();
+      await saveState();
+
+      const band = b.tier === "ALCOHOLIC" ? "🥂 UNLIMITED ALCOHOL WRISTBAND" : "🍽️ NON-ALCOHOLIC WRISTBAND";
+      banner.className = "scan-result-banner valid";
+      banner.innerHTML = `
+        ✅ VALID ENTRY — ADMIT ${b.qty}<br>
+        <div style="font-size:1.15rem; margin:4px 0;">${b.name} (${b.batch} Batch)</div>
+        <div style="background:#080808; color:var(--gold-light); padding:6px 10px; border-radius:8px; margin-top:6px;">${band}</div>
+      `;
+    }
+
+    /* ============================================================================
+       10. MODAL HELPERS & INIT
+       ============================================================================ */
+    function openModal(html) {
+      document.getElementById("modalContent").innerHTML = html;
+      document.getElementById("globalModal").classList.add("open");
+    }
+    function closeModal() {
+      document.getElementById("globalModal").classList.remove("open");
+    }
+
+    loadState();
+  </script>
+</body>
+</html>
