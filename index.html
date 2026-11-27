@@ -2055,9 +2055,141 @@
     }
 
     async function downloadPassPNG(id) {
-      const node = document.getElementById("printableDigitalPass");
-      if (!node) return;
-      const canvas = await html2canvas(node, { backgroundColor: "#070707", scale: 2 });
+      const b = appState.bookings[id];
+      if (!b) return;
+
+      const mount = document.getElementById("modalQrMount");
+      const qrCanvas = mount ? mount.querySelector("canvas") : null;
+      const qrImg = mount ? mount.querySelector("img") : null;
+
+      // Ensure we have a clean QR source
+      let qrSource = qrCanvas;
+      if (!qrSource && qrImg && qrImg.complete && qrImg.naturalWidth > 0) {
+        qrSource = qrImg;
+      }
+      if (!qrSource) {
+        const tmp = document.createElement("div");
+        new QRCode(tmp, {
+          text: b.id,
+          width: 300,
+          height: 300,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+        qrSource = tmp.querySelector("canvas") || tmp.querySelector("img");
+      }
+
+      const W = 820;
+      const H = 1160;
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+
+      // Background & gold border
+      ctx.fillStyle = "#090909";
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = "#d4af37";
+      ctx.lineWidth = 6;
+      ctx.strokeRect(24, 24, W - 48, H - 48);
+
+      ctx.textAlign = "center";
+
+      // Header
+      ctx.fillStyle = "#d4af37";
+      ctx.font = "800 20px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillText("OFFICIAL ENTRY PASS", W / 2, 95);
+
+      ctx.fillStyle = "#f7df8b";
+      ctx.font = "700 58px 'Cormorant Garamond', Georgia, serif";
+      ctx.fillText("From Clinics to Cocktails", W / 2, 165);
+
+      ctx.fillStyle = "#b8b1a3";
+      ctx.font = "600 22px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillText("16 December • Six Star • 6:30 PM – 11:00 PM", W / 2, 212);
+
+      // Tier pill
+      const isAlc = b.tier === "ALCOHOLIC";
+      const pillW = 420;
+      const pillH = 52;
+      const pillX = (W - pillW) / 2;
+      const pillY = 242;
+
+      ctx.fillStyle = isAlc ? "#d4af37" : "#181818";
+      ctx.fillRect(pillX, pillY, pillW, pillH);
+      if (!isAlc) {
+        ctx.strokeStyle = "#d4af37";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(pillX, pillY, pillW, pillH);
+      }
+
+      ctx.fillStyle = isAlc ? "#080808" : "#f7df8b";
+      ctx.font = "800 20px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillText(isAlc ? "UNLIMITED ALCOHOL PASS" : "NON-ALCOHOLIC PASS", W / 2, pillY + 33);
+
+      // Centered White QR Box
+      const qrBoxSize = 360;
+      const qrBoxX = (W - qrBoxSize) / 2;
+      const qrBoxY = 330;
+      const qrPad = 24;
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize);
+      ctx.strokeStyle = "#d4af37";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize);
+
+      if (qrSource) {
+        ctx.drawImage(
+          qrSource,
+          qrBoxX + qrPad,
+          qrBoxY + qrPad,
+          qrBoxSize - qrPad * 2,
+          qrBoxSize - qrPad * 2
+        );
+      }
+
+      // Guest Name & Batch
+      ctx.fillStyle = "#f8f5ee";
+      ctx.font = "800 36px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillText(b.name || b.id, W / 2, 755);
+
+      ctx.fillStyle = "#f7df8b";
+      ctx.font = "700 24px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillText(`${b.batch || "-"} Batch • Admits: ${b.qty || 1}`, W / 2, 798);
+
+      // Footer Details Box
+      const metaX = 70;
+      const metaY = 845;
+      const metaW = W - 140;
+      const metaH = 225;
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+      ctx.fillRect(metaX, metaY, metaW, metaH);
+      ctx.strokeStyle = "rgba(212, 175, 55, 0.35)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(metaX, metaY, metaW, metaH);
+
+      ctx.textAlign = "left";
+      const col1X = metaX + 36;
+      const col2X = W / 2 + 24;
+
+      ctx.fillStyle = "#d4af37";
+      ctx.font = "700 16px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillText("PASS ID", col1X, metaY + 52);
+      ctx.fillText("CHANNEL", col2X, metaY + 52);
+      ctx.fillText("VENUE", col1X, metaY + 145);
+      ctx.fillText("TRANSPORT", col2X, metaY + 145);
+
+      ctx.fillStyle = "#f8f5ee";
+      ctx.font = "800 26px 'Plus Jakarta Sans', sans-serif";
+      ctx.fillText(b.id, col1X, metaY + 86);
+      ctx.fillText(b.channel || "ONLINE", col2X, metaY + 86);
+      ctx.fillText("Six Star", col1X, metaY + 179);
+      ctx.fillText("Bus Included", col2X, metaY + 179);
+
       const link = document.createElement("a");
       link.download = `${id}_ClinicsToCocktails.png`;
       link.href = canvas.toDataURL("image/png");
