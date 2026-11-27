@@ -1992,7 +1992,7 @@
     /* ============================================================================
        6. DIGITAL QR PASS RENDERER & PNG DOWNLOAD
        ============================================================================ */
-    function viewDigitalPass(id) {
+   function viewDigitalPass(id) {
       const b = appState.bookings[id];
       if (!b || (b.status !== "APPROVED" && b.status !== "ISSUED")) return;
 
@@ -2041,31 +2041,23 @@
           colorLight: "#ffffff",
           correctLevel: QRCode.CorrectLevel.H
         });
+
+        setTimeout(() => {
+          const qrCanvas = mount.querySelector("canvas");
+          if (qrCanvas && qrCanvas.width > 0) {
+            const url = qrCanvas.toDataURL("image/png");
+            if (url && url.length > 500) {
+              mount.innerHTML = `<img src="${url}" alt="QR ${b.id}" style="width:150px; height:150px; display:block;" />`;
+            }
+          }
+        }, 120);
       }, 60);
     }
 
     async function downloadPassPNG(id) {
       const node = document.getElementById("printableDigitalPass");
       if (!node) return;
-
-      const mount = node.querySelector("#modalQrMount");
-      const qrCanvas = mount ? mount.querySelector("canvas") : null;
-
       const canvas = await html2canvas(node, { backgroundColor: "#070707", scale: 2 });
-
-      if (qrCanvas && qrCanvas.width > 0 && qrCanvas.height > 0) {
-        const ctx = canvas.getContext("2d");
-        // Centered white QR box matching .pass-qr-frame layout
-        const boxSize = Math.round(canvas.width * 0.42);
-        const boxX = Math.round((canvas.width - boxSize) / 2);
-        const boxY = Math.round(canvas.height * 0.345);
-        const pad = Math.round(boxSize * 0.06);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(boxX, boxY, boxSize, boxSize);
-        ctx.drawImage(qrCanvas, boxX + pad, boxY + pad, boxSize - pad * 2, boxSize - pad * 2);
-      }
-
       const link = document.createElement("a");
       link.download = `${id}_ClinicsToCocktails.png`;
       link.href = canvas.toDataURL("image/png");
