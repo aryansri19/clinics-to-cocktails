@@ -2053,22 +2053,17 @@
 
       const canvas = await html2canvas(node, { backgroundColor: "#070707", scale: 2 });
 
-      // Composite the live QR canvas directly onto the exported canvas so html2canvas never leaves it blank
-      if (mount && qrCanvas && qrCanvas.width > 0 && qrCanvas.height > 0) {
-        const nodeRect = node.getBoundingClientRect();
-        const mountRect = mount.getBoundingClientRect();
-        const scaleX = canvas.width / nodeRect.width;
-        const scaleY = canvas.height / nodeRect.height;
-
-        const dx = (mountRect.left - nodeRect.left) * scaleX;
-        const dy = (mountRect.top - nodeRect.top) * scaleY;
-        const dw = mountRect.width * scaleX;
-        const dh = mountRect.height * scaleY;
-
+      if (qrCanvas && qrCanvas.width > 0 && qrCanvas.height > 0) {
         const ctx = canvas.getContext("2d");
+        // Centered white QR box matching .pass-qr-frame layout
+        const boxSize = Math.round(canvas.width * 0.42);
+        const boxX = Math.round((canvas.width - boxSize) / 2);
+        const boxY = Math.round(canvas.height * 0.345);
+        const pad = Math.round(boxSize * 0.06);
+
         ctx.fillStyle = "#ffffff";
-        ctx.fillRect(dx, dy, dw, dh);
-        ctx.drawImage(qrCanvas, dx, dy, dw, dh);
+        ctx.fillRect(boxX, boxY, boxSize, boxSize);
+        ctx.drawImage(qrCanvas, boxX + pad, boxY + pad, boxSize - pad * 2, boxSize - pad * 2);
       }
 
       const link = document.createElement("a");
@@ -2076,7 +2071,6 @@
       link.href = canvas.toDataURL("image/png");
       link.click();
     }
-
     /* ============================================================================
        7. SINGLE ADMIN PORTAL (APPROVAL, MANUAL WHATSAPP, INFLOW, OFFLINE PDF)
        ============================================================================ */
