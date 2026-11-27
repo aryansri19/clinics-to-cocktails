@@ -1035,7 +1035,7 @@
         <div class="form-grid">
           <div class="form-group">
             <label for="guestName">Full Name (Printed on Pass) *</label>
-            <input type="text" id="guestName" placeholder="e.g. Aryan Srivastava" required />
+            <input type="text" id="guestName" placeholder="e.g. Dr. Aryan Srivastava" required />
           </div>
 
           <div class="form-group">
@@ -1494,7 +1494,6 @@
       bookings: {}
     };
 
-    // Restore cached local state immediately before network fetch
     try {
       const cached = localStorage.getItem(LOCAL_KEY);
       if (cached) {
@@ -1532,7 +1531,6 @@
           };
           localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
         } else if (Object.keys(appState.bookings).length > 0) {
-          // If cloud node is completely empty on first connect, seed local cached records safely via PATCH
           await patchPortalMeta();
           for (const [id, b] of Object.entries(appState.bookings)) {
             await saveSingleBooking(id, b);
@@ -1543,7 +1541,6 @@
         document.getElementById("dbModeBadge").textContent = "Offline Local Cache";
       }
 
-      // Increment visit count once per session using atomic PATCH (never overwrites bookings)
       if (!sessionStorage.getItem("fc2c_visited")) {
         sessionStorage.setItem("fc2c_visited", "1");
         appState.visits = (appState.visits || 0) + 1;
@@ -1555,7 +1552,6 @@
       refreshAllUI();
     }
 
-    // Updates ONLY top-level counters/settings via PATCH — never touches /bookings
     async function patchPortalMeta() {
       localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
       if (!activeDbBaseUrl) return;
@@ -1575,7 +1571,6 @@
       }
     }
 
-    // Saves or updates ONLY a single booking record via PUT to /portal/bookings/{id}.json
     async function saveSingleBooking(id, bookingObj) {
       appState.bookings[id] = bookingObj;
       localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
@@ -1591,7 +1586,6 @@
       }
     }
 
-    // Deletes ONLY a single booking record via DELETE to /portal/bookings/{id}.json
     async function deleteSingleBooking(id) {
       delete appState.bookings[id];
       localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
@@ -1653,7 +1647,6 @@
       }
     }
 
-    // Countdown to 4 November
     function updateCutoffClock() {
       const cutoff = new Date(EVENT_CONFIG.bookingCutoffISO).getTime();
       const now = Date.now();
@@ -1676,7 +1669,6 @@
     setInterval(updateCutoffClock, 1000);
     updateCutoffClock();
 
-    // Subtle social proof toast across batches 2020-2026
     const proofFeed = [
       { batch: "2023 Batch", action: "locked 2 Unlimited Alcohol passes", sub: "2 mins ago • Early Bird ₹1,500" },
       { batch: "2021 Batch", action: "booked 3 Unlimited Alcohol passes", sub: "5 mins ago • Early Bird ₹1,500" },
@@ -2016,7 +2008,7 @@
           </div>
 
           <div class="pass-qr-frame">
-            <div id="modalQrMount" style="width:150px; height:150px; display:flex; align-items:center; justify-content:center;"></div>
+            <div id="modalQrMount"></div>
           </div>
 
           <div style="font-size:1.15rem; font-weight:800; color:var(--text-primary);">${b.name}</div>
@@ -2049,16 +2041,6 @@
           colorLight: "#ffffff",
           correctLevel: QRCode.CorrectLevel.H
         });
-
-        requestAnimationFrame(() => {
-          const qrCanvas = mount.querySelector("canvas");
-          if (qrCanvas && qrCanvas.width > 0 && qrCanvas.height > 0) {
-            const qrUrl = qrCanvas.toDataURL("image/png");
-            if (qrUrl && qrUrl.length > 1000) {
-              mount.innerHTML = `<img src="${qrUrl}" alt="QR Code ${b.id}" width="150" height="150" style="width:150px; height:150px; display:block;" />`;
-            }
-          }
-        });
       }, 60);
     }
 
@@ -2068,15 +2050,27 @@
 
       const mount = node.querySelector("#modalQrMount");
       const qrCanvas = mount ? mount.querySelector("canvas") : null;
-      if (qrCanvas && qrCanvas.width > 0 && qrCanvas.height > 0) {
-        const qrUrl = qrCanvas.toDataURL("image/png");
-        if (qrUrl && qrUrl.length > 1000) {
-          mount.innerHTML = `<img src="${qrUrl}" alt="QR Code ${id}" width="150" height="150" style="width:150px; height:150px; display:block;" />`;
-        }
+
+      const canvas = await html2canvas(node, { backgroundColor: "#070707", scale: 2 });
+
+      // Composite the live QR canvas directly onto the exported canvas so html2canvas never leaves it blank
+      if (mount && qrCanvas && qrCanvas.width > 0 && qrCanvas.height > 0) {
+        const nodeRect = node.getBoundingClientRect();
+        const mountRect = mount.getBoundingClientRect();
+        const scaleX = canvas.width / nodeRect.width;
+        const scaleY = canvas.height / nodeRect.height;
+
+        const dx = (mountRect.left - nodeRect.left) * scaleX;
+        const dy = (mountRect.top - nodeRect.top) * scaleY;
+        const dw = mountRect.width * scaleX;
+        const dh = mountRect.height * scaleY;
+
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(dx, dy, dw, dh);
+        ctx.drawImage(qrCanvas, dx, dy, dw, dh);
       }
 
-      await new Promise(r => requestAnimationFrame(r));
-      const canvas = await html2canvas(node, { backgroundColor: "#070707", scale: 2 });
       const link = document.createElement("a");
       link.download = `${id}_ClinicsToCocktails.png`;
       link.href = canvas.toDataURL("image/png");
@@ -2153,7 +2147,6 @@
       document.getElementById("cnt-paid").textContent = paid.length;
       document.getElementById("cnt-locked").textContent = locked.length;
 
-      // 1. Pending Screenshot Review
       const pendingBox = document.getElementById("pendingListContainer");
       pendingBox.innerHTML = pending.length ? pending.map(b => `
         <div class="booking-row-card">
@@ -2173,7 +2166,6 @@
         </div>
       `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No screenshots pending review right now.</div>`;
 
-      // 2. Confirmed Paid Guests (Manual WhatsApp Dispatch)
       const q = (document.getElementById("paidSearchInput")?.value || "").toLowerCase();
       const filteredPaid = paid.filter(b =>
         !q || (b.name && b.name.toLowerCase().includes(q)) || (b.batch && b.batch.includes(q)) || (b.whatsapp && b.whatsapp.includes(q)) || b.id.toLowerCase().includes(q)
@@ -2197,7 +2189,6 @@
         </div>
       `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No confirmed passes yet.</div>`;
 
-      // 3. Locked / Unpaid
       const lockedBox = document.getElementById("lockedListContainer");
       lockedBox.innerHTML = locked.length ? locked.map(b => `
         <div class="booking-row-card">
@@ -2215,7 +2206,6 @@
         </div>
       `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No unpaid locks right now.</div>`;
 
-      // 4. Date-Wise Inflow Forecast
       renderInflowChart(locked);
     }
 
@@ -2412,32 +2402,26 @@ ${portalUrl}`;
       approveAndGeneratePass(id);
     }
 
-    // Helper: renders a horizontal wide ticket card onto a portrait A4 PDF (5 stacked per page)
     function drawHorizontalA4PassCard(doc, { x, y, cardW, cardH, passId, tier, guestName, batch, qty }) {
       const qrDataUrl = createQrDataUrlSync(passId, 160);
 
-      // Matte Black Ticket Base + Metallic Gold Border
       doc.setFillColor(12, 12, 12);
       doc.setDrawColor(212, 175, 55);
       doc.setLineWidth(0.7);
       doc.roundedRect(x, y, cardW, cardH, 3.5, 3.5, "FD");
 
-      // Gold left accent bar
       doc.setFillColor(212, 175, 55);
       doc.rect(x, y + 3, 2.5, cardH - 6, "F");
 
-      // Dashed tear/stub divider before QR section
       doc.setDrawColor(140, 110, 35);
       doc.setLineWidth(0.35);
       doc.line(x + cardW - 48, y + 3, x + cardW - 48, y + cardH - 3);
 
-      // Event Title
       doc.setTextColor(247, 223, 139);
       doc.setFont("times", "bold");
       doc.setFontSize(15);
       doc.text("From Clinics to Cocktails", x + 7, y + 10);
 
-      // Tier Pill Text
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(212, 175, 55);
@@ -2447,7 +2431,6 @@ ${portalUrl}`;
         y + 16
       );
 
-      // Guest Name & Details (if sold/assigned)
       if (guestName) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11.5);
@@ -2466,13 +2449,11 @@ ${portalUrl}`;
         doc.text("Full Gala Dinner  •  Bus Pickup & Drop Included", x + 7, y + 30);
       }
 
-      // Pass Serial Number
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10.5);
       doc.setTextColor(247, 223, 139);
       doc.text(`PASS ID: ${passId}`, x + 7, y + cardH - 6.5);
 
-      // Right QR Stub
       const qrBoxSize = 37;
       const qrX = x + cardW - 42.5;
       const qrY = y + (cardH - qrBoxSize) / 2;
@@ -2506,7 +2487,6 @@ ${portalUrl}`;
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-      // 5 horizontal passes stacked per A4 page (210mm x 297mm)
       const perPage = 5;
       const marginX = 10;
       const marginY = 10;
@@ -2559,7 +2539,6 @@ ${portalUrl}`;
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-      // 5 horizontal passes stacked per A4 page (210mm x 297mm)
       const perPage = 5;
       const marginX = 10;
       const marginY = 10;
@@ -2709,7 +2688,6 @@ ${portalUrl}`;
         return;
       }
 
-      // Valid Entry -> Lock anti-passback & trigger 1.6s Access Granted splash
       b.checkedIn = true;
       b.checkedInAt = Date.now();
       await saveSingleBooking(id, b);
