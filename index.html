@@ -1461,7 +1461,7 @@
       venue: "Six Star",
       time: "6:30 PM – 11:00 PM",
       // Hard booking deadline: 4 November 2026, 23:59:59 IST
-      bookingCutoffISO: "2016-12-04T23:59:59+05:30",
+      bookingCutoffISO: "2026-12-04T23:59:59+05:30",
       adminPin: "2021",
       // Primary Firebase Realtime Database URL + regional fallback so data never gets wiped
       firebaseDbUrl: "https://clinics-to-cocktails-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -1695,8 +1695,8 @@
       const dateInput = document.getElementById("promisedPayDate");
       const todayStr = new Date().toISOString().split("T")[0];
       dateInput.min = todayStr;
-      dateInput.max = "2016-12-04";
-      if (!dateInput.value) dateInput.value = todayStr <= "2016-12-04" ? todayStr : "2016-12-04";
+      dateInput.max = "2026-12-04";
+      if (!dateInput.value) dateInput.value = todayStr <= "2026-12-04" ? todayStr : "2026-12-04";
     }
 
     function startCheckoutTimer() {
