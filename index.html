@@ -782,7 +782,7 @@
   <nav class="portal-bar">
     <div class="brand-mini" onclick="switchView('landing')">
       From Clinics to Cocktails
-      <span class="mode-pill" id="dbModeBadge">Local Sync Ready</span>
+      <span class="mode-pill" id="dbModeBadge">Connecting...</span>
     </div>
     <div class="nav-actions">
       <button class="nav-btn active" id="nav-landing" onclick="switchView('landing')">Event Details</button>
@@ -1035,7 +1035,7 @@
         <div class="form-grid">
           <div class="form-group">
             <label for="guestName">Full Name (Printed on Pass) *</label>
-            <input type="text" id="guestName" placeholder="e.g. Aryan Srivastava" required />
+            <input type="text" id="guestName" placeholder="e.g. Dr. Aryan Srivastava" required />
           </div>
 
           <div class="form-group">
@@ -1249,7 +1249,7 @@
           <div class="panel-title">
             <span>Confirmed Paid Guests (Online &amp; Offline)</span>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-              <button class="btn-sm gold" onclick="printAllSoldPassesPDF()">🖨️ Print All Sold Passes (PDF)</button>
+              <button class="btn-sm gold" onclick="printAllSoldPassesPDF()">🖨️ Print All Sold Passes (A4 PDF)</button>
               <input type="text" id="paidSearchInput" placeholder="Search name, batch, phone..." onkeyup="renderAdmin()" style="max-width: 240px; padding: 8px 12px; font-size: 0.84rem;" />
             </div>
           </div>
@@ -1335,9 +1335,9 @@
         </div>
 
         <div class="panel-card">
-          <div class="panel-title">Print-Ready A4 Offline Pass Sheet Generator (PDF)</div>
+          <div class="panel-title">Print-Ready A4 Offline Pass Sheet Generator (5 Horizontal Passes / Page)</div>
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
-            Generates a print-ready A4 PDF sheet (10 black-and-gold tickets per page with unique QR codes &amp; serial IDs). Printed tickets start as <strong>UNASSIGNED</strong> so lost physical passes cannot enter at the gate until activated below.
+            Generates a print-ready A4 PDF sheet (<strong>5 horizontal black-and-gold tickets stacked per page</strong> with unique QR codes &amp; serial IDs). Printed tickets start as <strong>UNASSIGNED</strong> so lost physical passes cannot enter at the gate until activated below.
           </p>
           <div class="form-grid">
             <div class="form-group">
@@ -1350,14 +1350,15 @@
             <div class="form-group">
               <label>Number of Passes to Generate</label>
               <select id="batchPrintCount">
-                <option value="10">10 Passes (1 A4 Page)</option>
-                <option value="20">20 Passes (2 A4 Pages)</option>
-                <option value="30">30 Passes (3 A4 Pages)</option>
+                <option value="5">5 Passes (1 A4 Page)</option>
+                <option value="10">10 Passes (2 A4 Pages)</option>
+                <option value="20">20 Passes (4 A4 Pages)</option>
+                <option value="30">30 Passes (6 A4 Pages)</option>
               </select>
             </div>
           </div>
           <button class="btn-tier-outline" onclick="generateOfflineBatchPDF()">
-            🖨️ Generate &amp; Download Print-Ready A4 PDF
+            🖨️ Generate &amp; Download Print-Ready A4 PDF (5 / Page)
           </button>
 
           <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-subtle);">
@@ -1461,10 +1462,10 @@
       time: "6:30 PM – 11:00 PM",
       // Hard booking deadline: 4 November 2026, 23:59:59 IST
       bookingCutoffISO: "2026-11-04T23:59:59+05:30",
-      adminPin: "2021", // Change your Admin & Gate Scanner PIN here
-      // Optional: Paste your Firebase Realtime Database URL (e.g. "https://your-project-default-rtdb.firebaseio.com")
-      // Leave empty "" to run 100% locally in browser storage for testing.
-      firebaseDbUrl: "https://clinics-to-cocktails-default-rtdb.firebaseio.com"
+      adminPin: "2021",
+      // Primary Firebase Realtime Database URL + regional fallback so data never gets wiped
+      firebaseDbUrl: "https://clinics-to-cocktails-default-rtdb.asia-southeast1.firebasedatabase.app",
+      firebaseFallbackUrl: "https://clinics-to-cocktails-default-rtdb.firebaseio.com"
     };
 
     // Exact Batch-to-Collector Routing
@@ -1479,9 +1480,11 @@
     };
 
     /* ============================================================================
-       2. UNIFIED STORAGE LAYER (FIREBASE REST + LOCAL STORAGE FALLBACK)
+       2. SAFE ATOMIC STORAGE LAYER (NEVER OVERWRITES EXISTING BOOKINGS ON DEPLOY)
        ============================================================================ */
-    const LOCAL_KEY = "fc2c_portal_state_v1";
+    const LOCAL_KEY = "fc2c_portal_state_v2";
+    let activeDbBaseUrl = "";
+    let initialCloudLoadSucceeded = false;
 
     let appState = {
       visits: 142,
@@ -1491,47 +1494,114 @@
       bookings: {}
     };
 
-    async function loadState() {
-      if (EVENT_CONFIG.firebaseDbUrl) {
+    // Restore cached local state immediately before network fetch
+    try {
+      const cached = localStorage.getItem(LOCAL_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        appState = { ...appState, ...parsed, bookings: parsed.bookings || {} };
+      }
+    } catch (e) {}
+
+    async function resolveWorkingDbUrl() {
+      const candidates = [EVENT_CONFIG.firebaseDbUrl, EVENT_CONFIG.firebaseFallbackUrl].filter(Boolean);
+      for (const base of candidates) {
         try {
-          const res = await fetch(`${EVENT_CONFIG.firebaseDbUrl}/portal.json`);
-          const data = await res.json();
-          if (data) {
-            appState = { ...appState, ...data, bookings: data.bookings || {} };
+          const res = await fetch(`${base}/portal.json`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            activeDbBaseUrl = base;
+            return { base, data };
           }
-          document.getElementById("dbModeBadge").textContent = "Live Cloud Sync";
-        } catch (e) {
-          console.warn("Firebase fetch fallback to local:", e);
+        } catch (e) {}
+      }
+      return { base: "", data: null };
+    }
+
+    async function loadState() {
+      const { base, data } = await resolveWorkingDbUrl();
+      if (base) {
+        initialCloudLoadSucceeded = true;
+        if (data && typeof data === "object") {
+          appState = {
+            visits: typeof data.visits === "number" ? data.visits : appState.visits,
+            earlyBirdActive: typeof data.earlyBirdActive === "boolean" ? data.earlyBirdActive : appState.earlyBirdActive,
+            earlyBirdLeftAL: typeof data.earlyBirdLeftAL === "number" ? data.earlyBirdLeftAL : appState.earlyBirdLeftAL,
+            earlyBirdLeftNA: typeof data.earlyBirdLeftNA === "number" ? data.earlyBirdLeftNA : appState.earlyBirdLeftNA,
+            bookings: data.bookings || {}
+          };
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
+        } else if (Object.keys(appState.bookings).length > 0) {
+          // If cloud node is completely empty on first connect, seed local cached records safely via PATCH
+          await patchPortalMeta();
+          for (const [id, b] of Object.entries(appState.bookings)) {
+            await saveSingleBooking(id, b);
+          }
         }
+        document.getElementById("dbModeBadge").textContent = "Live Cloud Sync";
       } else {
-        const raw = localStorage.getItem(LOCAL_KEY);
-        if (raw) {
-          try { appState = { ...appState, ...JSON.parse(raw) }; } catch (e) {}
-        }
-        document.getElementById("dbModeBadge").textContent = "Local Laptop Mode";
+        document.getElementById("dbModeBadge").textContent = "Offline Local Cache";
       }
 
-      // Increment visit count once per session
+      // Increment visit count once per session using atomic PATCH (never overwrites bookings)
       if (!sessionStorage.getItem("fc2c_visited")) {
         sessionStorage.setItem("fc2c_visited", "1");
         appState.visits = (appState.visits || 0) + 1;
-        await saveState();
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
+        if (activeDbBaseUrl && initialCloudLoadSucceeded) {
+          await patchPortalMeta();
+        }
       }
       refreshAllUI();
     }
 
-    async function saveState() {
+    // Updates ONLY top-level counters/settings via PATCH — never touches /bookings
+    async function patchPortalMeta() {
       localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
-      if (EVENT_CONFIG.firebaseDbUrl) {
-        try {
-          await fetch(`${EVENT_CONFIG.firebaseDbUrl}/portal.json`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(appState)
-          });
-        } catch (e) {
-          console.error("Cloud sync error:", e);
-        }
+      if (!activeDbBaseUrl) return;
+      try {
+        await fetch(`${activeDbBaseUrl}/portal.json`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            visits: appState.visits,
+            earlyBirdActive: appState.earlyBirdActive,
+            earlyBirdLeftAL: appState.earlyBirdLeftAL,
+            earlyBirdLeftNA: appState.earlyBirdLeftNA
+          })
+        });
+      } catch (e) {
+        console.error("Meta sync error:", e);
+      }
+    }
+
+    // Saves or updates ONLY a single booking record via PUT to /portal/bookings/{id}.json
+    async function saveSingleBooking(id, bookingObj) {
+      appState.bookings[id] = bookingObj;
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
+      if (!activeDbBaseUrl) return;
+      try {
+        await fetch(`${activeDbBaseUrl}/portal/bookings/${encodeURIComponent(id)}.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bookingObj)
+        });
+      } catch (e) {
+        console.error("Booking sync error:", e);
+      }
+    }
+
+    // Deletes ONLY a single booking record via DELETE to /portal/bookings/{id}.json
+    async function deleteSingleBooking(id) {
+      delete appState.bookings[id];
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(appState));
+      if (!activeDbBaseUrl) return;
+      try {
+        await fetch(`${activeDbBaseUrl}/portal/bookings/${encodeURIComponent(id)}.json`, {
+          method: "DELETE"
+        });
+      } catch (e) {
+        console.error("Booking delete sync error:", e);
       }
     }
 
@@ -1630,7 +1700,6 @@
       switchView("booking");
       startCheckoutTimer();
 
-      // Constrain promised payment date between today and 4 Nov
       const dateInput = document.getElementById("promisedPayDate");
       const todayStr = new Date().toISOString().split("T")[0];
       dateInput.min = todayStr;
@@ -1752,7 +1821,7 @@
       const collector = BATCH_COLLECTORS[basics.batch];
       const id = generateId("PASS");
 
-      appState.bookings[id] = {
+      const bookingObj = {
         id,
         channel: "ONLINE",
         name: basics.name,
@@ -1771,9 +1840,9 @@
         createdAt: Date.now()
       };
 
-      await saveState();
+      await saveSingleBooking(id, bookingObj);
       resetBookingForm();
-      showBookingConfirmationModal(appState.bookings[id]);
+      showBookingConfirmationModal(bookingObj);
     }
 
     async function submitPayLaterLock() {
@@ -1789,8 +1858,7 @@
       const unitPrice = getCurrentPrices()[selectedTier];
       const id = generateId("LOCK");
 
-      // Note: Pay Later lock is NOT routed to a collector yet and generates NO pass
-      appState.bookings[id] = {
+      const bookingObj = {
         id,
         channel: "ONLINE",
         name: basics.name,
@@ -1807,9 +1875,9 @@
         createdAt: Date.now()
       };
 
-      await saveState();
+      await saveSingleBooking(id, bookingObj);
       resetBookingForm();
-      showBookingConfirmationModal(appState.bookings[id]);
+      showBookingConfirmationModal(bookingObj);
     }
 
     function resetBookingForm() {
@@ -1845,7 +1913,8 @@
     /* ============================================================================
        5. GUEST LOOKUP & PAY LATER COMPLETION
        ============================================================================ */
-    function searchBooking() {
+    async function searchBooking() {
+      await loadState();
       const q = document.getElementById("lookupQuery").value.trim().toUpperCase();
       const area = document.getElementById("lookupResultsArea");
       if (!q) return;
@@ -1919,7 +1988,7 @@
           b.screenshot = canvas.toDataURL("image/jpeg", 0.72);
           b.collectorName = collector.name;
           b.status = "PENDING_REVIEW";
-          await saveState();
+          await saveSingleBooking(bookingId, b);
           alert("Screenshot uploaded! Your booking is now queued for admin approval.");
           searchBooking();
         };
@@ -1947,7 +2016,7 @@
           </div>
 
           <div class="pass-qr-frame">
-            <div id="modalQrMount"></div>
+            <div id="modalQrMount" style="width:150px; height:150px; display:flex; align-items:center; justify-content:center;"></div>
           </div>
 
           <div style="font-size:1.15rem; font-weight:800; color:var(--text-primary);">${b.name}</div>
@@ -1962,7 +2031,7 @@
         </div>
 
         <div style="display:flex; gap:10px; margin-top:14px;">
-          <button class="btn-gold-primary" onclick="downloadPassPNG('${b.id}')">⬇ Download Pass Image</button>
+          <button class="btn-gold-primary" id="downloadPassBtn" onclick="downloadPassPNG('${b.id}')">⬇ Download Pass Image</button>
           <button class="nav-btn" onclick="closeModal()">Close</button>
         </div>
       `;
@@ -1970,6 +2039,7 @@
 
       setTimeout(() => {
         const mount = document.getElementById("modalQrMount");
+        if (!mount) return;
         mount.innerHTML = "";
         new QRCode(mount, {
           text: b.id,
@@ -1979,12 +2049,28 @@
           colorLight: "#ffffff",
           correctLevel: QRCode.CorrectLevel.H
         });
+
+        setTimeout(() => {
+          const qrCanvas = mount.querySelector("canvas");
+          const qrImg = mount.querySelector("img");
+          const dataUrl = qrCanvas ? qrCanvas.toDataURL("image/png") : (qrImg ? qrImg.src : "");
+          if (dataUrl) {
+            mount.innerHTML = `<img src="${dataUrl}" alt="QR Code ${b.id}" style="width:150px; height:150px; display:block;" />`;
+          }
+        }, 80);
       }, 60);
     }
 
     async function downloadPassPNG(id) {
       const node = document.getElementById("printableDigitalPass");
-      const canvas = await html2canvas(node, { backgroundColor: "#070707", scale: 2 });
+      if (!node) return;
+      await new Promise(r => setTimeout(r, 120));
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#070707",
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
+      });
       const link = document.createElement("a");
       link.download = `${id}_ClinicsToCocktails.png`;
       link.href = canvas.toDataURL("image/png");
@@ -1997,20 +2083,18 @@
     let adminAuthenticated = false;
     let activeAdminTab = "pending";
 
-    function openAdminGate() {
-      if (adminAuthenticated) {
-        switchView("admin");
-        renderAdmin();
-        return;
-      }
-      const pin = prompt("Enter Admin PIN:");
-      if (pin === EVENT_CONFIG.adminPin) {
+    async function openAdminGate() {
+      if (!adminAuthenticated) {
+        const pin = prompt("Enter Admin PIN:");
+        if (pin !== EVENT_CONFIG.adminPin) {
+          if (pin !== null) alert("Incorrect PIN.");
+          return;
+        }
         adminAuthenticated = true;
-        switchView("admin");
-        renderAdmin();
-      } else if (pin !== null) {
-        alert("Incorrect PIN.");
       }
+      await loadState();
+      switchView("admin");
+      renderAdmin();
     }
 
     function switchAdminTab(tab) {
@@ -2024,7 +2108,7 @@
 
     async function toggleTierPrices() {
       appState.earlyBirdActive = !appState.earlyBirdActive;
-      await saveState();
+      await patchPortalMeta();
       refreshAllUI();
     }
 
@@ -2038,7 +2122,6 @@
       const paid = all.filter(b => b.status === "APPROVED" || b.status === "ISSUED");
       const locked = all.filter(b => b.status === "PAY_LATER_LOCKED");
 
-      // KPIs
       let paidPasses = 0, alcCount = 0, nonAlcCount = 0, revenue = 0;
       paid.forEach(b => {
         paidPasses += b.qty;
@@ -2108,7 +2191,7 @@
         </div>
       `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No confirmed passes yet.</div>`;
 
-      // 3. Locked / Unpaid (NO Approve or Send Pass button; only Send Payment Reminder)
+      // 3. Locked / Unpaid
       const lockedBox = document.getElementById("lockedListContainer");
       lockedBox.innerHTML = locked.length ? locked.map(b => `
         <div class="booking-row-card">
@@ -2126,7 +2209,7 @@
         </div>
       `).join("") : `<div style="color:var(--text-muted); text-align:center; padding:18px;">No unpaid locks right now.</div>`;
 
-      // 4. Date-Wise Inflow Forecast Table & Chart
+      // 4. Date-Wise Inflow Forecast
       renderInflowChart(locked);
     }
 
@@ -2204,10 +2287,10 @@
       if (b.tier === "ALCOHOLIC") appState.earlyBirdLeftAL = Math.max(1, appState.earlyBirdLeftAL - b.qty);
       else appState.earlyBirdLeftNA = Math.max(1, appState.earlyBirdLeftNA - b.qty);
 
-      await saveState();
+      await saveSingleBooking(id, b);
+      await patchPortalMeta();
       refreshAllUI();
 
-      // Prompt manual WhatsApp send immediately after automated pass generation
       openModal(`
         <div style="font-size:2rem; margin-bottom:6px;">✅</div>
         <h3 style="font-family:'Cormorant Garamond',serif; font-size:1.75rem; color:var(--gold-light); margin-bottom:6px;">
@@ -2232,7 +2315,7 @@
       if (!b || (b.status !== "APPROVED" && b.status !== "ISSUED")) return;
 
       b.whatsappDispatched = true;
-      await saveState();
+      await saveSingleBooking(id, b);
       renderAdmin();
 
       const tierName = b.tier === "ALCOHOLIC" ? "Unlimited Alcohol Pass" : "Non-Alcoholic Pass";
@@ -2277,13 +2360,12 @@ ${portalUrl}`;
 
     async function rejectBooking(id) {
       if (!confirm("Remove / reject this entry?")) return;
-      delete appState.bookings[id];
-      await saveState();
+      await deleteSingleBooking(id);
       refreshAllUI();
     }
 
     /* ============================================================================
-       8. OFFLINE PASSES (INSTANT ISSUE + BATCH A4 PDF + PHYSICAL ACTIVATION)
+       8. OFFLINE PASSES & HORIZONTAL 5-PER-A4-PAGE PDF GENERATORS
        ============================================================================ */
     async function issueInstantOfflinePass() {
       const name = document.getElementById("offName").value.trim();
@@ -2301,7 +2383,7 @@ ${portalUrl}`;
       const unitPrice = payMode === "COMPLIMENTARY" ? 0 : getCurrentPrices()[tier];
       const id = generateId("OFF");
 
-      appState.bookings[id] = {
+      const bookingObj = {
         id,
         channel: `OFFLINE (${payMode})`,
         name,
@@ -2317,11 +2399,96 @@ ${portalUrl}`;
         createdAt: Date.now()
       };
 
-      await saveState();
+      await saveSingleBooking(id, bookingObj);
       document.getElementById("offName").value = "";
       document.getElementById("offPhone").value = "";
       refreshAllUI();
       approveAndGeneratePass(id);
+    }
+
+    // Helper: renders a horizontal wide ticket card onto a portrait A4 PDF (5 stacked per page)
+    function drawHorizontalA4PassCard(doc, { x, y, cardW, cardH, passId, tier, guestName, batch, qty }) {
+      const qrDataUrl = createQrDataUrlSync(passId, 160);
+
+      // Matte Black Ticket Base + Metallic Gold Border
+      doc.setFillColor(12, 12, 12);
+      doc.setDrawColor(212, 175, 55);
+      doc.setLineWidth(0.7);
+      doc.roundedRect(x, y, cardW, cardH, 3.5, 3.5, "FD");
+
+      // Gold left accent bar
+      doc.setFillColor(212, 175, 55);
+      doc.rect(x, y + 3, 2.5, cardH - 6, "F");
+
+      // Dashed tear/stub divider before QR section
+      doc.setDrawColor(140, 110, 35);
+      doc.setLineWidth(0.35);
+      doc.line(x + cardW - 48, y + 3, x + cardW - 48, y + cardH - 3);
+
+      // Event Title
+      doc.setTextColor(247, 223, 139);
+      doc.setFont("times", "bold");
+      doc.setFontSize(15);
+      doc.text("From Clinics to Cocktails", x + 7, y + 10);
+
+      // Tier Pill Text
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(212, 175, 55);
+      doc.text(
+        tier === "ALCOHOLIC" ? "UNLIMITED ALCOHOL PASS  •  WHISKEY, VODKA & GIN" : "NON-ALCOHOLIC PASS  •  GALA DINNER & MOCKTAILS",
+        x + 7,
+        y + 16
+      );
+
+      // Guest Name & Details (if sold/assigned)
+      if (guestName) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`${String(guestName).slice(0, 34)}  (${batch || "-"} Batch)`, x + 7, y + 25);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(220, 215, 205);
+        doc.text(`Admits: ${qty || 1}   •   16 December   •   Six Star   •   6:30 PM – 11:00 PM`, x + 7, y + 32);
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(220, 215, 205);
+        doc.text("16 December   •   Venue: Six Star   •   6:30 PM – 11:00 PM", x + 7, y + 24);
+        doc.text("Full Gala Dinner  •  Bus Pickup & Drop Included", x + 7, y + 30);
+      }
+
+      // Pass Serial Number
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(247, 223, 139);
+      doc.text(`PASS ID: ${passId}`, x + 7, y + cardH - 6.5);
+
+      // Right QR Stub
+      const qrBoxSize = 37;
+      const qrX = x + cardW - 42.5;
+      const qrY = y + (cardH - qrBoxSize) / 2;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(qrX, qrY, qrBoxSize, qrBoxSize, 2, 2, "F");
+      if (qrDataUrl) {
+        doc.addImage(qrDataUrl, "PNG", qrX + 2, qrY + 2, qrBoxSize - 4, qrBoxSize - 4);
+      }
+    }
+
+    function createQrDataUrlSync(text, size) {
+      const tempDiv = document.createElement("div");
+      new QRCode(tempDiv, {
+        text,
+        width: size,
+        height: size,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      const qrCanvas = tempDiv.querySelector("canvas");
+      return qrCanvas ? qrCanvas.toDataURL("image/png") : "";
     }
 
     async function generateOfflineBatchPDF() {
@@ -2333,24 +2500,24 @@ ${portalUrl}`;
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-      const cols = 2, rows = 5;
-      const marginX = 10, marginY = 10;
-      const cardW = 92, cardH = 52;
-      const gapX = 6, gapY = 4;
+      // 5 horizontal passes stacked per A4 page (210mm x 297mm)
+      const perPage = 5;
+      const marginX = 10;
+      const marginY = 10;
+      const cardW = 190;
+      const cardH = 51;
+      const gapY = 5.5;
 
       for (let i = 0; i < count; i++) {
-        if (i > 0 && i % 10 === 0) doc.addPage();
-        const idxOnPage = i % 10;
-        const col = idxOnPage % cols;
-        const row = Math.floor(idxOnPage / cols);
-        const x = marginX + col * (cardW + gapX);
+        if (i > 0 && i % perPage === 0) doc.addPage();
+        const row = i % perPage;
+        const x = marginX;
         const y = marginY + row * (cardH + gapY);
 
         const serialNum = String(existingCount + i + 1).padStart(3, "0");
         const passId = `${prefix}-${serialNum}`;
 
-        // Save UNASSIGNED offline pass to database
-        appState.bookings[passId] = {
+        const bookingObj = {
           id: passId,
           channel: "OFFLINE_PRINT",
           name: "",
@@ -2365,48 +2532,12 @@ ${portalUrl}`;
           createdAt: Date.now()
         };
 
-        // Render temp QR canvas
-        const tempDiv = document.createElement("div");
-        new QRCode(tempDiv, { text: passId, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
-        const qrCanvas = tempDiv.querySelector("canvas");
-        const qrDataUrl = qrCanvas.toDataURL("image/png");
-
-        // Black & Gold Ticket Cell
-        doc.setFillColor(12, 12, 12);
-        doc.setDrawColor(212, 175, 55);
-        doc.setLineWidth(0.6);
-        doc.roundedRect(x, y, cardW, cardH, 3, 3, "FD");
-
-        doc.setTextColor(247, 223, 139);
-        doc.setFont("times", "bold");
-        doc.setFontSize(12);
-        doc.text("From Clinics to Cocktails", x + 4, y + 8);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(212, 175, 55);
-        doc.text(tier === "ALCOHOLIC" ? "UNLIMITED ALCOHOL PASS" : "NON-ALCOHOLIC PASS", x + 4, y + 13);
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(220, 215, 205);
-        doc.setFontSize(7.5);
-        doc.text("16 Dec • Six Star • 6:30 PM – 11 PM", x + 4, y + 19);
-        doc.text("Bus Pick & Drop Included", x + 4, y + 24);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(255, 255, 255);
-        doc.text(passId, x + 4, y + 46);
-
-        // White QR Backing + QR
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(x + cardW - 32, y + 10, 28, 28, 2, 2, "F");
-        doc.addImage(qrDataUrl, "PNG", x + cardW - 30.5, y + 11.5, 25, 25);
+        await saveSingleBooking(passId, bookingObj);
+        drawHorizontalA4PassCard(doc, { x, y, cardW, cardH, passId, tier });
       }
 
-      await saveState();
       refreshAllUI();
-      doc.save(`${prefix}_Offline_Passes_A4.pdf`);
+      doc.save(`${prefix}_Offline_Passes_5PerPage_A4.pdf`);
     }
 
     function printAllSoldPassesPDF() {
@@ -2422,63 +2553,34 @@ ${portalUrl}`;
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-      const cols = 2;
-      const marginX = 10, marginY = 10;
-      const cardW = 92, cardH = 52;
-      const gapX = 6, gapY = 4;
+      // 5 horizontal passes stacked per A4 page (210mm x 297mm)
+      const perPage = 5;
+      const marginX = 10;
+      const marginY = 10;
+      const cardW = 190;
+      const cardH = 51;
+      const gapY = 5.5;
 
       soldPasses.forEach((b, i) => {
-        if (i > 0 && i % 10 === 0) doc.addPage();
-        const idxOnPage = i % 10;
-        const col = idxOnPage % cols;
-        const row = Math.floor(idxOnPage / cols);
-        const x = marginX + col * (cardW + gapX);
+        if (i > 0 && i % perPage === 0) doc.addPage();
+        const row = i % perPage;
+        const x = marginX;
         const y = marginY + row * (cardH + gapY);
 
-        const tempDiv = document.createElement("div");
-        new QRCode(tempDiv, { text: b.id, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
-        const qrCanvas = tempDiv.querySelector("canvas");
-        const qrDataUrl = qrCanvas.toDataURL("image/png");
-
-        // Black & Gold Physical Sold Pass Cell
-        doc.setFillColor(12, 12, 12);
-        doc.setDrawColor(212, 175, 55);
-        doc.setLineWidth(0.6);
-        doc.roundedRect(x, y, cardW, cardH, 3, 3, "FD");
-
-        doc.setTextColor(247, 223, 139);
-        doc.setFont("times", "bold");
-        doc.setFontSize(11.5);
-        doc.text("From Clinics to Cocktails", x + 4, y + 7.5);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(212, 175, 55);
-        doc.text(b.tier === "ALCOHOLIC" ? "ALCOHOLIC PASS (UNLIMITED)" : "NON-ALCOHOLIC PASS", x + 4, y + 12.5);
-
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9.5);
-        doc.text(String(b.name).slice(0, 26), x + 4, y + 19);
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(220, 215, 205);
-        doc.setFontSize(7.5);
-        doc.text(`Batch: ${b.batch || "-"}  •  Admits: ${b.qty}`, x + 4, y + 24.5);
-        doc.text("16 Dec • Six Star • 6:30 PM – 11 PM", x + 4, y + 29.5);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9.5);
-        doc.setTextColor(247, 223, 139);
-        doc.text(`Pass #: ${b.id}`, x + 4, y + 46.5);
-
-        // White QR Backing + QR
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(x + cardW - 32, y + 10, 28, 28, 2, 2, "F");
-        doc.addImage(qrDataUrl, "PNG", x + cardW - 30.5, y + 11.5, 25, 25);
+        drawHorizontalA4PassCard(doc, {
+          x,
+          y,
+          cardW,
+          cardH,
+          passId: b.id,
+          tier: b.tier,
+          guestName: b.name,
+          batch: b.batch,
+          qty: b.qty
+        });
       });
 
-      doc.save("ClinicsToCocktails_All_Sold_Passes_A4.pdf");
+      doc.save("ClinicsToCocktails_All_Sold_Passes_5PerPage_A4.pdf");
     }
 
     async function activatePrintedPass() {
@@ -2495,7 +2597,7 @@ ${portalUrl}`;
       b.batch = batch;
       b.whatsapp = whatsapp;
       b.status = "ISSUED";
-      await saveState();
+      await saveSingleBooking(serial, b);
       refreshAllUI();
       alert(`Physical pass ${serial} is now ACTIVATED for ${name} (${batch} Batch)!`);
     }
@@ -2519,7 +2621,7 @@ ${portalUrl}`;
     /* ============================================================================
        9. MOBILE GATE QR SCANNER (ANTI-PASSBACK & ACCESS SPLASH)
        ============================================================================ */
-    function openGateScanner() {
+    async function openGateScanner() {
       if (!adminAuthenticated) {
         const pin = prompt("Enter Gate / Admin PIN:");
         if (pin !== EVENT_CONFIG.adminPin) {
@@ -2528,6 +2630,7 @@ ${portalUrl}`;
         }
         adminAuthenticated = true;
       }
+      await loadState();
       switchView("gate");
       startCameraScanner();
     }
@@ -2603,7 +2706,7 @@ ${portalUrl}`;
       // Valid Entry -> Lock anti-passback & trigger 1.6s Access Granted splash
       b.checkedIn = true;
       b.checkedInAt = Date.now();
-      await saveState();
+      await saveSingleBooking(id, b);
 
       showAccessGrantedSplash(b);
 
