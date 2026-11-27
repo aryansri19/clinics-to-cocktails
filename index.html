@@ -648,12 +648,97 @@
       padding: 24px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; text-align: center;
     }
 
-    /* Gate Scanner */
+    /* Gate Scanner & Access Granted Splash */
     .gate-wrap { max-width: 520px; margin: 28px auto 60px; }
     #qr-reader { width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid var(--gold-primary); margin-bottom: 16px; }
     .scan-result-banner { padding: 18px; border-radius: 14px; font-weight: 800; text-align: center; margin-top: 14px; display: none; }
     .scan-result-banner.valid { display: block; background: rgba(34, 197, 94, 0.18); border: 2px solid #22c55e; color: #86efac; }
     .scan-result-banner.invalid { display: block; background: rgba(239, 68, 68, 0.18); border: 2px solid #ef4444; color: #fca5a5; }
+
+    .access-granted-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 350;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(circle at center, rgba(20, 83, 45, 0.96) 0%, rgba(6, 20, 12, 0.99) 100%);
+      backdrop-filter: blur(8px);
+      text-align: center;
+    }
+    .access-granted-splash.show {
+      display: flex;
+      animation: splashFadeIn 0.16s ease-out;
+    }
+    @keyframes splashFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .splash-card {
+      max-width: 440px;
+      width: 100%;
+      background: rgba(9, 15, 11, 0.95);
+      border: 2.5px solid #4ade80;
+      border-radius: 24px;
+      padding: 32px 24px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85), 0 0 50px rgba(74, 222, 128, 0.28);
+    }
+    .splash-status {
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #4ade80;
+      margin-bottom: 6px;
+    }
+    .splash-headline {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2.3rem, 7vw, 3.2rem);
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.05;
+      margin-bottom: 14px;
+    }
+    .splash-guest-name {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--gold-light);
+      margin-bottom: 4px;
+    }
+    .splash-batch-line {
+      font-size: 0.9rem;
+      color: #d1fae5;
+      margin-bottom: 16px;
+    }
+    .splash-pass-type {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .splash-pass-type.alcohol {
+      background: linear-gradient(135deg, #f7df8b, #d4af37);
+      color: #080808;
+    }
+    .splash-pass-type.nonalcohol {
+      background: rgba(74, 222, 128, 0.16);
+      border: 1.5px solid #4ade80;
+      color: #bbf7d0;
+    }
+    .splash-admits-box {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
 
     /* FOMO Toast */
     .fomo-toast {
@@ -1163,7 +1248,10 @@
         <div class="panel-card">
           <div class="panel-title">
             <span>Confirmed Paid Guests (Online &amp; Offline)</span>
-            <input type="text" id="paidSearchInput" placeholder="Search name, batch, phone..." onkeyup="renderAdmin()" style="max-width: 240px; padding: 8px 12px; font-size: 0.84rem;" />
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button class="btn-sm gold" onclick="printAllSoldPassesPDF()">🖨️ Print All Sold Passes (PDF)</button>
+              <input type="text" id="paidSearchInput" placeholder="Search name, batch, phone..." onkeyup="renderAdmin()" style="max-width: 240px; padding: 8px 12px; font-size: 0.84rem;" />
+            </div>
           </div>
           <div id="paidListContainer"></div>
         </div>
@@ -1335,6 +1423,18 @@
     </div>
   </div>
 
+  <!-- 1-2 SECOND ACCESS GRANTED SPLASH OVERLAY -->
+  <div class="access-granted-splash" id="accessGrantedSplash">
+    <div class="splash-card">
+      <div class="splash-status">✓ Entry Verified</div>
+      <div class="splash-headline">Access Granted</div>
+      <div class="splash-guest-name" id="splashGuestName">Guest Name</div>
+      <div class="splash-batch-line" id="splashBatchLine">Batch</div>
+      <div class="splash-pass-type alcohol" id="splashPassType">Alcoholic Pass</div>
+      <div class="splash-admits-box" id="splashAdmitsBox">Admits: 1 Person</div>
+    </div>
+  </div>
+
   <!-- MODAL FOR SCREENSHOT PREVIEW / PASS PREVIEW -->
   <div class="modal-backdrop" id="globalModal" onclick="if(event.target===this) closeModal()">
     <div class="modal-box" id="modalContent"></div>
@@ -1360,7 +1460,7 @@
       venue: "Six Star",
       time: "6:30 PM – 11:00 PM",
       // Hard booking deadline: 4 November 2026, 23:59:59 IST
-      bookingCutoffISO: "2026-12-04T23:59:59+05:30",
+      bookingCutoffISO: "2026-11-04T23:59:59+05:30",
       adminPin: "2021", // Change your Admin & Gate Scanner PIN here
       // Optional: Paste your Firebase Realtime Database URL (e.g. "https://your-project-default-rtdb.firebaseio.com")
       // Leave empty "" to run 100% locally in browser storage for testing.
@@ -1449,6 +1549,7 @@
     let compressedScreenshotDataUrl = "";
     let checkoutTimerInterval = null;
     let html5QrScanner = null;
+    let splashTimeoutId = null;
 
     function switchView(viewName) {
       document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
@@ -1533,8 +1634,8 @@
       const dateInput = document.getElementById("promisedPayDate");
       const todayStr = new Date().toISOString().split("T")[0];
       dateInput.min = todayStr;
-      dateInput.max = "2026-12-04";
-      if (!dateInput.value) dateInput.value = todayStr <= "2026-12-04" ? todayStr : "2026-12-04";
+      dateInput.max = "2026-11-04";
+      if (!dateInput.value) dateInput.value = todayStr <= "2026-11-04" ? todayStr : "2026-11-04";
     }
 
     function startCheckoutTimer() {
@@ -2308,6 +2409,78 @@ ${portalUrl}`;
       doc.save(`${prefix}_Offline_Passes_A4.pdf`);
     }
 
+    function printAllSoldPassesPDF() {
+      const soldPasses = Object.values(appState.bookings).filter(
+        b => (b.status === "APPROVED" || b.status === "ISSUED") && b.name
+      );
+
+      if (!soldPasses.length) {
+        alert("No sold/issued passes with guest names found to print.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      const cols = 2;
+      const marginX = 10, marginY = 10;
+      const cardW = 92, cardH = 52;
+      const gapX = 6, gapY = 4;
+
+      soldPasses.forEach((b, i) => {
+        if (i > 0 && i % 10 === 0) doc.addPage();
+        const idxOnPage = i % 10;
+        const col = idxOnPage % cols;
+        const row = Math.floor(idxOnPage / cols);
+        const x = marginX + col * (cardW + gapX);
+        const y = marginY + row * (cardH + gapY);
+
+        const tempDiv = document.createElement("div");
+        new QRCode(tempDiv, { text: b.id, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+        const qrCanvas = tempDiv.querySelector("canvas");
+        const qrDataUrl = qrCanvas.toDataURL("image/png");
+
+        // Black & Gold Physical Sold Pass Cell
+        doc.setFillColor(12, 12, 12);
+        doc.setDrawColor(212, 175, 55);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(x, y, cardW, cardH, 3, 3, "FD");
+
+        doc.setTextColor(247, 223, 139);
+        doc.setFont("times", "bold");
+        doc.setFontSize(11.5);
+        doc.text("From Clinics to Cocktails", x + 4, y + 7.5);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(212, 175, 55);
+        doc.text(b.tier === "ALCOHOLIC" ? "ALCOHOLIC PASS (UNLIMITED)" : "NON-ALCOHOLIC PASS", x + 4, y + 12.5);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9.5);
+        doc.text(String(b.name).slice(0, 26), x + 4, y + 19);
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(220, 215, 205);
+        doc.setFontSize(7.5);
+        doc.text(`Batch: ${b.batch || "-"}  •  Admits: ${b.qty}`, x + 4, y + 24.5);
+        doc.text("16 Dec • Six Star • 6:30 PM – 11 PM", x + 4, y + 29.5);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        doc.setTextColor(247, 223, 139);
+        doc.text(`Pass #: ${b.id}`, x + 4, y + 46.5);
+
+        // White QR Backing + QR
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(x + cardW - 32, y + 10, 28, 28, 2, 2, "F");
+        doc.addImage(qrDataUrl, "PNG", x + cardW - 30.5, y + 11.5, 25, 25);
+      });
+
+      doc.save("ClinicsToCocktails_All_Sold_Passes_A4.pdf");
+    }
+
     async function activatePrintedPass() {
       const serial = document.getElementById("actSerialId").value.trim().toUpperCase();
       const name = document.getElementById("actGuestName").value.trim();
@@ -2344,7 +2517,7 @@ ${portalUrl}`;
     }
 
     /* ============================================================================
-       9. MOBILE GATE QR SCANNER (ANTI-PASSBACK)
+       9. MOBILE GATE QR SCANNER (ANTI-PASSBACK & ACCESS SPLASH)
        ============================================================================ */
     function openGateScanner() {
       if (!adminAuthenticated) {
@@ -2379,6 +2552,29 @@ ${portalUrl}`;
       switchView("landing");
     }
 
+    function showAccessGrantedSplash(booking) {
+      const isAlc = booking.tier === "ALCOHOLIC";
+      const splash = document.getElementById("accessGrantedSplash");
+      const typeBadge = document.getElementById("splashPassType");
+
+      document.getElementById("splashGuestName").textContent = booking.name || booking.id;
+      document.getElementById("splashBatchLine").textContent =
+        `${booking.batch ? booking.batch + " Batch" : "Guest Pass"} • ID: ${booking.id}`;
+
+      typeBadge.textContent = isAlc ? "🥂 Alcoholic Pass" : "🍽️ Non-Alcoholic Pass";
+      typeBadge.className = `splash-pass-type ${isAlc ? "alcohol" : "nonalcohol"}`;
+
+      const admitsCount = booking.qty || 1;
+      document.getElementById("splashAdmitsBox").textContent =
+        `Admits: ${admitsCount} ${admitsCount === 1 ? "Person" : "People"}`;
+
+      splash.classList.add("show");
+      clearTimeout(splashTimeoutId);
+      splashTimeoutId = setTimeout(() => {
+        splash.classList.remove("show");
+      }, 1600);
+    }
+
     async function verifyPassId(rawCode) {
       const id = (rawCode || "").trim().toUpperCase();
       const banner = document.getElementById("scanResultBanner");
@@ -2404,17 +2600,20 @@ ${portalUrl}`;
         return;
       }
 
-      // Valid Entry -> Lock anti-passback
+      // Valid Entry -> Lock anti-passback & trigger 1.6s Access Granted splash
       b.checkedIn = true;
       b.checkedInAt = Date.now();
       await saveState();
 
-      const band = b.tier === "ALCOHOLIC" ? "🥂 UNLIMITED ALCOHOL WRISTBAND" : "🍽️ NON-ALCOHOLIC WRISTBAND";
+      showAccessGrantedSplash(b);
+
+      const passTypeLabel = b.tier === "ALCOHOLIC" ? "🥂 ALCOHOLIC PASS" : "🍽️ NON-ALCOHOLIC PASS";
+      const admitsCount = b.qty || 1;
       banner.className = "scan-result-banner valid";
       banner.innerHTML = `
-        ✅ VALID ENTRY — ADMIT ${b.qty}<br>
+        ✅ ACCESS GRANTED — ADMITS ${admitsCount} ${admitsCount === 1 ? "PERSON" : "PEOPLE"}<br>
         <div style="font-size:1.15rem; margin:4px 0;">${b.name} (${b.batch} Batch)</div>
-        <div style="background:#080808; color:var(--gold-light); padding:6px 10px; border-radius:8px; margin-top:6px;">${band}</div>
+        <div style="background:#080808; color:var(--gold-light); padding:6px 10px; border-radius:8px; margin-top:6px;">${passTypeLabel}</div>
       `;
     }
 
