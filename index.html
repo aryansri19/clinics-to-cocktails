@@ -1533,8 +1533,8 @@
       const dateInput = document.getElementById("promisedPayDate");
       const todayStr = new Date().toISOString().split("T")[0];
       dateInput.min = todayStr;
-      dateInput.max = "2026-11-04";
-      if (!dateInput.value) dateInput.value = todayStr <= "2026-11-04" ? todayStr : "2026-11-04";
+      dateInput.max = "2026-12-04";
+      if (!dateInput.value) dateInput.value = todayStr <= "2026-12-04" ? todayStr : "2026-12-04";
     }
 
     function startCheckoutTimer() {
