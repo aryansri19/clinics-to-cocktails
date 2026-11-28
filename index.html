@@ -775,7 +775,7 @@
 
   <!-- Top Urgency Marquee -->
   <div class="top-ticker">
-    Early Bird Wave Live <span class="dot">•</span> Bookings Close Permanently on 4 November <span class="dot">•</span> Lock Your Pass Before Prices Jump
+    Early Bird Wave Live <span class="dot">•</span> Bookings Close Permanently on 4 December <span class="dot">•</span> Lock Your Pass Before Prices Jump
   </div>
 
   <!-- Navigation Header -->
@@ -824,7 +824,7 @@
 
         <!-- Primary Booking CTA + Scarcity -->
         <div class="cta-cluster">
-          <div class="countdown-label" id="cutoffHeading">Portal Closes Permanently on 4 November</div>
+          <div class="countdown-label" id="cutoffHeading">Portal Closes Permanently on 4 December</div>
           <div class="countdown-grid">
             <div class="time-box"><span class="num" id="cd-days">00</span><span class="lbl">Days</span></div>
             <div class="time-box"><span class="num" id="cd-hours">00</span><span class="lbl">Hours</span></div>
@@ -984,7 +984,7 @@
           “Your presence will make the celebration even more special. Let’s eat, drink, and celebrate!”
         </p>
         <p style="font-size: 0.9rem; color: var(--text-secondary); max-width: 540px; margin: 0 auto 22px;">
-          Can’t pay right now? Lock your Early Bird price today and pick your payment date before <strong>4 November</strong>.
+          Can’t pay right now? Lock your Early Bird price today and pick your payment date before <strong>4 December</strong>.
         </p>
         <div style="max-width: 340px; margin: 0 auto 18px;">
           <button class="btn-gold-primary" onclick="openBooking()">Book Pass Now</button>
@@ -1135,7 +1135,7 @@
         <div id="payLaterSection" style="display: none;">
           <div style="background: rgba(212, 175, 55, 0.08); border: 1px solid var(--border-gold); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; font-size: 0.86rem; color: var(--text-secondary);">
             <strong style="color: var(--gold-light);">How Price Lock Works:</strong><br />
-            Your Early Bird rate (<strong id="lockRateText">₹1,500</strong>/pass) is reserved against price hikes. <strong>No pass will be generated or sent</strong> until you return, complete your payment, and upload your screenshot on or before <strong>4 November</strong>.
+            Your Early Bird rate (<strong id="lockRateText">₹1,500</strong>/pass) is reserved against price hikes. <strong>No pass will be generated or sent</strong> until you return, complete your payment, and upload your screenshot on or before <strong>4 December</strong>.
           </div>
 
           <div class="form-group">
@@ -1273,7 +1273,7 @@
         <div class="panel-card">
           <div class="panel-title">Expected Date-Wise Payment Inflow (From Pay Later Locks)</div>
           <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
-            Breakdown of when locked-pass students plan to complete their payments before <strong>4 November</strong>.
+            Breakdown of when locked-pass students plan to complete their payments before <strong>4 December</strong>.
           </p>
           <div id="inflowChartContainer"></div>
         </div>
@@ -1460,7 +1460,7 @@
       date: "16 December",
       venue: "Six Star",
       time: "6:30 PM – 11:00 PM",
-      // Hard booking deadline: 4 November 2026, 23:59:59 IST
+      // Hard booking deadline: 4 December 2026, 23:59:59 IST
       bookingCutoffISO: "2026-12-04T23:59:59+05:30",
       adminPin: "2021",
       // Primary Firebase Realtime Database URL + regional fallback so data never gets wiped
@@ -1653,7 +1653,7 @@
       const diff = cutoff - now;
 
       if (diff <= 0) {
-        document.getElementById("cutoffHeading").textContent = "Online Booking Portal Closed (4 November Cutoff Reached)";
+        document.getElementById("cutoffHeading").textContent = "Online Booking Portal Closed (4 December Cutoff Reached)";
         ["cd-days", "cd-hours", "cd-mins", "cd-secs"].forEach(id => document.getElementById(id).textContent = "00");
         return;
       }
@@ -2464,7 +2464,7 @@ ${portalUrl}`;
 
 Hey *${b.name}* (${b.batch} Batch), you locked your Early Bird rate for *${b.qty} × ${tierName}* (*₹${b.totalAmount.toLocaleString("en-IN")}*) with a planned payment date of *${b.promisedPayDate}*.
 
-Please complete your payment to *${collector.name}* and upload your screenshot before the *4 November* cutoff so we can generate your QR pass!
+Please complete your payment to *${collector.name}* and upload your screenshot before the *4 December* cutoff so we can generate your QR pass!
 
 Complete payment here using ID *${b.id}*:
 ${portalUrl}`;
